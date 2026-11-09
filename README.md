@@ -34,3 +34,7 @@ Der Quellcode liegt in `src/`. `./build.sh` setzt daraus `index.html` zusammen.
 | `src/03_net_host.js` | Stundenplan, Netzwerk, Host-Simulation (Lehrer-KI, NPCs, Zeit) |
 | `src/04_client.js` | Spieler, Verdachtssystem, Aktionen, Ereignisse |
 | `src/05_ui.js` | Minispiele, HUD, Zeugnis, Nachsitz-Cutscene, Hauptschleife |
+
+## Versionen und Releases
+
+Die aktuelle Versionsnummer steht in `VERSION`. Nach jedem Push auf `main` prüft die Action `.github/workflows/release.yml`, ob es zu dieser Nummer schon ein Release gibt, und legt sonst eins an. Das Release enthält das gebaute Spiel als Download und die Notes aus `release-notes/vX.Y.Z.md`, falls die Datei existiert, sonst automatisch erzeugte Notes. Versionen unter 1.0.0 oder mit Suffix (z. B. `0.3.0-beta`) werden als Vorabversion markiert.
