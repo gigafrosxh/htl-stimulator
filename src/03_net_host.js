@@ -10,6 +10,8 @@ function genDay(seed, day) {
     if (i > 0 && r() < .28 + day * .08) L.ev = ['supplier', 'absent', 'test', 'director', 'wrongroom', 'alarm', 'director', 'test'][Math.floor(r() * 8)];
     if (L.ev === 'test' || r() < .1 + day * .04) L.test = true;
     if (L.ev === 'wrongroom') { let o; do { o = CLASSROOMS[Math.floor(r() * CLASSROOMS.length)]; } while (o.i === room.i); L.real = o.i; }
+    // Schularbeit: every G.saEvery days the 3rd lesson is an announced exam (cheating allowed, if you dare)
+    if (G.saEvery > 0 && day % G.saEvery === 0 && i === 2) { L.sa = true; L.test = false; L.group = false; if (L.ev !== 'director') L.ev = null; L.real = L.room; }
     L.teacher = L.ev === 'supplier' ? SUP : L.ev === 'absent' ? -1 : ti;
     L.forget = r() < PERS[TEACH[L.teacher < 0 ? ti : L.teacher].pers].forget;
     out.push(L);
@@ -17,7 +19,7 @@ function genDay(seed, day) {
   return out;
 }
 let PLAN = []; let planKey = '';
-function plan() { const k = G.seed + ':' + G.day; if (k !== planKey) { planKey = k; PLAN = genDay(G.seed, G.day); } return PLAN; }
+function plan() { const k = G.seed + ':' + G.day + ':' + G.saEvery; if (k !== planKey) { planKey = k; PLAN = genDay(G.seed, G.day); } return PLAN; }
 function needHW(li, name = ME.name) { const L = plan()[li]; if (!L) return false; return L.group || (hashStr(G.seed + ':' + G.day + ':' + name + ':' + li) % 100) < 82; }
 function lessonRoomIdx(L, el) { if (!L) return -1; if (L.ev === 'wrongroom') return (G.ph === 'lesson' && G.li === L.i && el >= 6) || (G.li > L.i) ? L.real : L.room; return L.room; }
 
@@ -36,7 +38,7 @@ const WSAY = {
 };
 
 const Net = { room: null, me: 'local', solo: true, peers: [], connected: false };
-const G = { ph: 'lobby', day: 1, seed: 1, li: 0, rem: 0, dur: 180, el: 0, goal: 0, tp: 0, ev: [], es: 0, T: [], run: 0, res: null, np: 1, alarms: 0 };
+const G = { saEvery: 3, ph: 'lobby', day: 1, seed: 1, li: 0, rem: 0, dur: 180, el: 0, goal: 0, tp: 0, ev: [], es: 0, T: [], run: 0, res: null, np: 1, alarms: 0 };
 let gRecv = 0, lastHost = null, lastSeenG = null;
 async function netJoin(code) {
   try {
@@ -159,6 +161,7 @@ function hostTeacherTick(dt) {
         const v = pick(inRoom).presence; const back = { x: v.x - Math.sin(v.ry) * 1.1, z: v.z - Math.cos(v.ry) * 1.1 };
         t.x = back.x; t.z = back.z; t.y = room.y; t.ry = v.ry; t.st = 'x'; t.tmr = 3; hev('pop', { w: i }); hsay(i, 'tele'); return;
       }
+      if (L.sa && r < .55) { const a = pick(F.aisles); goTo(t, { x: a.x, y: room.y, z: a.z }, 'sa', 's', null, rnd(2, 3.5)); return; }
       if (r < P.nap) { goTo(t, { x: F.desk.x, y: room.y, z: F.desk.z }, 'nap' + Math.random(), 'n', F.ry, rnd(8, 15)); hsay(i, 'nap'); return; }
       if (r < P.nap + P.board) { goTo(t, { x: F.board.x + rnd(-1.5, 1.5), y: room.y, z: F.board.z }, 'board' + Math.random(), 'b', F.boardRy, rnd(4, 8)); if (Math.random() < .5) hsay(i, 'board'); return; }
       if (r < .62) { const a = pick(F.aisles); goTo(t, { x: a.x, y: room.y, z: a.z }, 'patrol' + Math.random(), 's', null, rnd(2, 3.5)); return; }
@@ -205,6 +208,7 @@ function hostTick(dt) {
       if (L.forget) { hev('toast', { txt: `${TEACH[L.teacher].name} hat die Hausübungskontrolle vergessen!`, k: 'good' }); hsay(L.teacher, ['Hausübung? Ach... egal.', 'Wo waren wir? Ich hab vergessen was ich wollte.']); }
       else { hsay(L.teacher, 'check'); hev('check', { li: G.li }); }
     }
+    if (L.sa && H.testDone !== G.li && G.el > 18 && G.rem > 30 && (!t || ready)) { H.testDone = G.li; hev('sa', { li: G.li }); hev('toast', { txt: `SCHULARBEIT ${L.s.toUpperCase()}! Hefte weg, Handys weg (haha).`, k: 'bad' }); if (t) hsay(L.teacher, ['Schularbeit. Wer schummelt, kriegt einen Fünfer.', 'Ich habe Augen am Hinterkopf.', 'Blatt umdrehen. Jetzt.']); }
     if (L.test && H.testDone !== G.li && G.el > G.dur * .5 && G.rem > 25) { H.testDone = G.li; hev('test', { li: G.li }); hev('toast', { txt: 'UNANGEKÜNDIGTER TEST! Hefte weg!', k: 'bad' }); if (t) hsay(L.teacher, ['Überraschung! Test!', 'Zettel raus. Test. Jetzt.']); }
     if (L.ev === 'alarm' && H.testDone !== 100 + G.li && G.el > G.dur * .7) { H.testDone = 100 + G.li; hostAlarm(null); return; }
     if (G.rem <= 0) hostEndLesson();
@@ -227,7 +231,7 @@ function hostAlarm(peer) {
 function hostAction(from, a) {
   const L = plan()[G.li]; const name = from.presence.n;
   switch (a.t) {
-    case 'start': if (G.ph === 'lobby' || G.ph === 'detention') { G.dur = clamp(+a.dur || 180, 60, 400); G.run++; G.seed = Math.floor(Math.random() * 1e9); hostBeginDay(1); } break;
+    case 'start': if (G.ph === 'lobby' || G.ph === 'detention') { G.dur = clamp(+a.dur || 180, 60, 400); G.saEvery = clamp(Math.round(+a.sa), 0, 7); if (isNaN(G.saEvery)) G.saEvery = 3; G.run++; G.seed = Math.floor(Math.random() * 1e9); hostBeginDay(1); } break;
     case 'sus50': { const t = H.tch[a.w]; if (t && !t.path.length && t.rg <= 0) { t.st = 'x'; t.tmr = 2.2; t.ry = Math.atan2(from.presence.x - t.x, from.presence.z - t.z); hsay(a.w, 'sus', { n: name }); } break; }
     case 'caught': { const t = H.tch[a.w]; if (t && t.rg <= 0) { t.st = 'x'; t.tmr = 2.5; t.path = []; t.ry = Math.atan2(from.presence.x - t.x, from.presence.z - t.z); hsay(a.w, 'caught', { n: name }); }
       if (G.ph === 'lesson') { H.caught++; if (!H.repeated && H.caught >= Math.max(2, Math.ceil(G.np / 2))) { H.repeated = true; G.rem += G.dur * .4; hev('toast', { txt: 'STUNDENWIEDERHOLUNG! Das machen wir nochmal!', k: 'bad' }); } } break; }

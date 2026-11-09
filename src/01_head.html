@@ -66,7 +66,11 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
 .slot b{position:absolute;left:3px;top:1px;font-size:11px}
 #prompt{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);background:var(--paper);border:3px solid var(--ink);border-radius:6px;padding:3px 12px;font-size:17px;white-space:nowrap}
 #prompt:empty{display:none}
-#toasts{position:absolute;left:50%;top:92px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;width:min(640px,92vw)}
+#wp{position:absolute;left:50%;top:96px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:var(--yellow);border:3px solid var(--ink);border-radius:20px;padding:2px 12px 2px 6px;font-size:16px;white-space:nowrap}
+#wp[hidden],#lockHint[hidden]{display:none}
+#wpArrow{display:inline-block;font-size:22px;line-height:1;transition:transform .12s linear}
+#lockHint{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);color:var(--paper);background:var(--shade);border-radius:6px;padding:2px 10px;font-size:14px;white-space:nowrap}
+#toasts{position:absolute;left:50%;top:132px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;width:min(640px,92vw)}
 .toast{font-family:var(--f-display);font-size:24px;color:var(--yellow);text-shadow:2px 2px 0 var(--ink),-1px -1px 0 var(--ink),1px -1px 0 var(--ink),-1px 1px 0 var(--ink);text-align:center;animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
 .toast.bad{color:#ff7b6b}.toast.good{color:#8cff9e}.toast.info{color:#bfe3ff;font-size:20px}
 @keyframes pop{from{transform:scale(.3) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
@@ -127,6 +131,11 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
         <select id="lenSel" style="font-family:var(--f-hand);font-size:17px;border:3px solid var(--ink);border-radius:6px;padding:3px">
           <option value="100">Kurz (100 s, zum Testen)</option><option value="180" selected>Normal (3 min)</option><option value="300">Lang (5 min)</option>
         </select>
+      </div>
+      <div class="row"><label for="saSel">Schularbeit</label>
+        <select id="saSel" style="font-family:var(--f-hand);font-size:17px;border:3px solid var(--ink);border-radius:6px;padding:3px">
+          <option value="2">alle 2 Tage</option><option value="3" selected>alle 3 Tage</option><option value="4">alle 4 Tage</option><option value="1">jeden Tag (Hölle)</option><option value="0">nie</option>
+        </select>
         <button id="startBtn" type="button">Schultag starten!</button></div>
     </div>
     <div class="keys">
@@ -147,6 +156,8 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
   <div id="netState"></div>
   <div id="toasts"></div>
   <div id="prompt"></div>
+  <div id="wp" hidden><span id="wpArrow">⬆</span><span id="wpText"></span></div>
+  <div id="lockHint" hidden>Klick ins Bild, um mit der Maus zu schauen (Esc gibt sie wieder frei)</div>
   <div id="susBox"><span id="eye">Verdacht</span><div class="bar"><i id="susBar"></i></div></div>
   <div id="inv"></div>
   <div id="help"><b>E</b> Sitzen/Benutzen · <b>H</b> HÜ · <b>F</b> Abschreiben · <b>V</b> Stehlen · <b>G</b> Zettel · <b>R</b> Schubsen · <b>Q</b> Frage · <b>X</b> Petzen · <b>1-3</b> Items<br>Lehrer schaut weg = Hausübung machen. Lehrer schaut her = unschuldig gucken.</div>

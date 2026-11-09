@@ -66,7 +66,11 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
 .slot b{position:absolute;left:3px;top:1px;font-size:11px}
 #prompt{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);background:var(--paper);border:3px solid var(--ink);border-radius:6px;padding:3px 12px;font-size:17px;white-space:nowrap}
 #prompt:empty{display:none}
-#toasts{position:absolute;left:50%;top:92px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;width:min(640px,92vw)}
+#wp{position:absolute;left:50%;top:96px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:var(--yellow);border:3px solid var(--ink);border-radius:20px;padding:2px 12px 2px 6px;font-size:16px;white-space:nowrap}
+#wp[hidden],#lockHint[hidden]{display:none}
+#wpArrow{display:inline-block;font-size:22px;line-height:1;transition:transform .12s linear}
+#lockHint{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);color:var(--paper);background:var(--shade);border-radius:6px;padding:2px 10px;font-size:14px;white-space:nowrap}
+#toasts{position:absolute;left:50%;top:132px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;width:min(640px,92vw)}
 .toast{font-family:var(--f-display);font-size:24px;color:var(--yellow);text-shadow:2px 2px 0 var(--ink),-1px -1px 0 var(--ink),1px -1px 0 var(--ink),-1px 1px 0 var(--ink);text-align:center;animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
 .toast.bad{color:#ff7b6b}.toast.good{color:#8cff9e}.toast.info{color:#bfe3ff;font-size:20px}
 @keyframes pop{from{transform:scale(.3) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
@@ -127,6 +131,11 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
         <select id="lenSel" style="font-family:var(--f-hand);font-size:17px;border:3px solid var(--ink);border-radius:6px;padding:3px">
           <option value="100">Kurz (100 s, zum Testen)</option><option value="180" selected>Normal (3 min)</option><option value="300">Lang (5 min)</option>
         </select>
+      </div>
+      <div class="row"><label for="saSel">Schularbeit</label>
+        <select id="saSel" style="font-family:var(--f-hand);font-size:17px;border:3px solid var(--ink);border-radius:6px;padding:3px">
+          <option value="2">alle 2 Tage</option><option value="3" selected>alle 3 Tage</option><option value="4">alle 4 Tage</option><option value="1">jeden Tag (Hölle)</option><option value="0">nie</option>
+        </select>
         <button id="startBtn" type="button">Schultag starten!</button></div>
     </div>
     <div class="keys">
@@ -147,6 +156,8 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
   <div id="netState"></div>
   <div id="toasts"></div>
   <div id="prompt"></div>
+  <div id="wp" hidden><span id="wpArrow">⬆</span><span id="wpText"></span></div>
+  <div id="lockHint" hidden>Klick ins Bild, um mit der Maus zu schauen (Esc gibt sie wieder frei)</div>
   <div id="susBox"><span id="eye">Verdacht</span><div class="bar"><i id="susBar"></i></div></div>
   <div id="inv"></div>
   <div id="help"><b>E</b> Sitzen/Benutzen · <b>H</b> HÜ · <b>F</b> Abschreiben · <b>V</b> Stehlen · <b>G</b> Zettel · <b>R</b> Schubsen · <b>Q</b> Frage · <b>X</b> Petzen · <b>1-3</b> Items<br>Lehrer schaut weg = Hausübung machen. Lehrer schaut her = unschuldig gucken.</div>
@@ -294,6 +305,40 @@ const BOX = new THREE.BoxGeometry(1, 1, 1);
 function box(x, y, z, w, h, d, mat, parent = scene) { const m = new THREE.Mesh(BOX, typeof mat === 'number' ? M(mat) : mat); m.scale.set(w, h, d); m.position.set(x, y, z); parent.add(m); return m; }
 function canvasTex(w, h, draw, rep) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); } return t; }
 function texMat(w, h, draw, rep) { return new THREE.MeshLambertMaterial({ map: canvasTex(w, h, draw, rep) }); }
+// ---------- procedural textures (generated in code, no image files) ----------
+const texCache = {};
+function cTex(key, w, h, draw) { if (texCache[key]) return texCache[key]; const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return (texCache[key] = t); }
+const hex = c => '#' + new THREE.Color(c).getHexString();
+function shade(c, f) { const col = new THREE.Color(c); col.multiplyScalar(f); return '#' + col.getHexString(); }
+function noiseFill(g, w, h, base, amt = 14, n = 900) { g.fillStyle = base; g.fillRect(0, 0, w, h); for (let i = 0; i < n; i++) { const v = (Math.random() - .5) * amt; g.fillStyle = v > 0 ? `rgba(255,255,255,${v / 100})` : `rgba(0,0,0,${-v / 100})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); } }
+const SHIRTS = ['stripes', 'dots', 'number', 'star', 'hoodie', 'check', 'zigzag', 'plain'];
+function shirtTex(col, kind, seed) {
+  return cTex('shirt' + col + kind + seed, 256, 128, (g, w, h) => {
+    const base = hex(col), dark = shade(col, .72), light = shade(col, 1.25); noiseFill(g, w, h, base, 10, 600);
+    g.fillStyle = dark;
+    if (kind === 'stripes') for (let y = 6; y < h; y += 22) g.fillRect(0, y, w, 9);
+    else if (kind === 'dots') { g.fillStyle = light; for (let y = 10; y < h; y += 22) for (let x = (y / 22 % 2) * 11; x < w; x += 22) { g.beginPath(); g.arc(x, y, 5, 0, 7); g.fill(); } }
+    else if (kind === 'check') { g.globalAlpha = .45; for (let x = 0; x < w; x += 24) g.fillRect(x, 0, 10, h); for (let y = 0; y < h; y += 24) g.fillRect(0, y, w, 10); g.globalAlpha = 1; }
+    else if (kind === 'zigzag') { g.strokeStyle = light; g.lineWidth = 6; g.beginPath(); for (let x = 0; x <= w; x += 16) g.lineTo(x, 60 + (x / 16 % 2 ? 14 : -14)); g.stroke(); }
+    else if (kind === 'number') { g.fillStyle = '#fffdf2'; g.font = 'bold 44px Impact, sans-serif'; g.textAlign = 'center'; g.fillText(String(seed % 99 + 1), w * .25, 82); g.fillRect(0, 118, w, 6); }
+    else if (kind === 'star') { g.fillStyle = '#ffd23f'; g.save(); g.translate(w * .25, 64); g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 9 : 22; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.fill(); g.restore(); }
+    else if (kind === 'hoodie') { g.fillRect(w * .12, 70, w * .26, 30); g.strokeStyle = '#fffdf2'; g.lineWidth = 3; g.beginPath(); g.moveTo(w * .22, 0); g.lineTo(w * .22, 34); g.moveTo(w * .28, 0); g.lineTo(w * .28, 34); g.stroke(); }
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, h - 10, w, 10); // hem shadow
+  });
+}
+function faceTex(skin, seed) {
+  return cTex('face' + skin + seed, 256, 128, (g, w, h) => {
+    const r = mulberry(seed); noiseFill(g, w, h, hex(skin), 8, 400);
+    const fx = w * .25; g.fillStyle = 'rgba(255,90,110,.35)'; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(fx + sd * 26, h * .58, 13, 8, 0, 0, 7); g.fill(); });
+    if (r() < .6) { g.fillStyle = 'rgba(140,70,30,.55)'; for (let i = 0; i < 14; i++) g.fillRect(fx + (r() - .5) * 60, h * .52 + (r() - .5) * 12, 2, 2); }
+    g.strokeStyle = 'rgba(40,25,15,.85)'; g.lineWidth = 4; g.lineCap = 'round'; const angry = r() < .4 ? 1 : -1;
+    [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(fx + sd * 8, h * .3 + angry * sd * -3); g.lineTo(fx + sd * 26, h * .3 - angry * sd * -3); g.stroke(); });
+  });
+}
+const DENIM = () => cTex('denim', 64, 64, (g, w, h) => { noiseFill(g, w, h, '#ffffff', 30, 500); g.strokeStyle = 'rgba(0,0,0,.15)'; for (let x = 0; x < w; x += 3) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 8, h); g.stroke(); } });
+const TWEED = () => cTex('tweed', 64, 64, (g, w, h) => { noiseFill(g, w, h, '#ffffff', 26, 700); g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 2; for (let y = 0; y < h; y += 8) for (let x = 0; x < w; x += 8) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4, y + ((x / 8) % 2 ? 6 : -6) + 4); g.stroke(); } });
+const texMatCache = {};
+function TM(col, tex, key) { const k = col + ':' + key; return texMatCache[k] || (texMatCache[k] = new THREE.MeshLambertMaterial({ color: col, map: tex })); }
 const checker = (a, b) => (g, w, h) => { g.fillStyle = a; g.fillRect(0, 0, w, h); g.fillStyle = b; g.fillRect(0, 0, w / 2, h / 2); g.fillRect(w / 2, h / 2, w / 2, h / 2); };
 
 // --- layout ---
@@ -334,9 +379,10 @@ function roomAt(x, z, y) {
 const WALLS = []; // {x0,x1,z0,z1,f,maxY?}
 const camBlockers = [];
 const wallMatFor = t => ({ class: 0xd9ecd4, toilet: 0xcfe3f0, staff: 0xf0dcc0, office: 0xe6d0e8, library: 0xeee2c4, buffet: 0xffe0b0, stairs: 0xdcdcdc }[t] || 0xe8e4d4);
+const WALLTEX = () => cTex('wall', 32, 256, (g, w, h) => { noiseFill(g, w, h, '#ffffff', 12, 300); g.fillStyle = 'rgba(60,80,70,.28)'; g.fillRect(0, h * .62, w, h * .38); g.fillStyle = 'rgba(40,50,45,.55)'; g.fillRect(0, h * .61, w, 5); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, h - 10, w, 10); });
 function wall(x0, x1, z0, z1, f, col = 0xe8e4d4, h = WH, collide = true) {
   if (x1 - x0 < 0.01 || z1 - z0 < 0.01) return;
-  const m = box((x0 + x1) / 2, f * FH + h / 2, (z0 + z1) / 2, x1 - x0, h, z1 - z0, col);
+  const m = box((x0 + x1) / 2, f * FH + h / 2, (z0 + z1) / 2, x1 - x0, h, z1 - z0, h > 3 ? TM(col, WALLTEX(), 'wall') : M(col));
   camBlockers.push(m);
   if (collide) WALLS.push({ x0, x1, z0, z1, f });
   return m;
@@ -499,17 +545,19 @@ function setLabel(s, text) {
   g.fillStyle = u.fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 47, 490); u.t.needsUpdate = true;
   s.scale.set(3.4 * u.scale, .64 * u.scale, 1);
 }
-const SPH = new THREE.SphereGeometry(.5, 16, 12), CYL = new THREE.CylinderGeometry(.5, .5, 1, 10), CONE = new THREE.ConeGeometry(.5, 1, 12), TOR = new THREE.TorusGeometry(.5, .09, 6, 16);
+const SPH = new THREE.SphereGeometry(.5, 20, 14), CYL = new THREE.CylinderGeometry(.5, .5, 1, 10), CONE = new THREE.ConeGeometry(.5, 1, 12), TOR = new THREE.TorusGeometry(.5, .09, 6, 16);
 function ball(x, y, z, sx, sy, sz, mat, parent) { const m = new THREE.Mesh(SPH, typeof mat === 'number' ? M(mat) : mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); parent.add(m); return m; }
 function makeChar(opts) {
   const o = Object.assign({ col: 0xe8412c, skin: 0xf2c79b, hair: 0x4a2a12, pants: 0x2b3a67, sz: 1, teacher: false, name: '', hat: -1 }, opts);
   const g = new THREE.Group(); scene.add(g);
   const h = hashStr(o.name + o.col); const r = mulberry(h);
-  const sk = M(o.skin), body = M(o.col), pants = M(o.pants);
+  const kind = o.teacher ? 'tweed' : (o.shirt || SHIRTS[h % SHIRTS.length]);
+  const sk = M(o.skin), body = o.teacher ? TM(o.col, TWEED(), 'tweed') : new THREE.MeshLambertMaterial({ map: shirtTex(o.col, kind, h % 97) }), pants = TM(o.pants, DENIM(), 'denim');
+  const faceM = new THREE.MeshLambertMaterial({ map: faceTex(o.skin, h % 53) });
   const mk = (geo, w, d, mat) => { const m = new THREE.Mesh(geo, mat); m.userData.w = w; m.userData.d = d; g.add(m); return m; };
   const s = o.sz;
   // big round potato head
-  const head = new THREE.Mesh(SPH, sk); head.scale.setScalar((o.teacher ? .78 : .74) * s); g.add(head);
+  const head = new THREE.Mesh(SPH, faceM); head.scale.setScalar((o.teacher ? .78 : .74) * s); g.add(head);
   const eyes = []; const big = r() < .5 ? 0 : 1;
   [-.21, .21].forEach((x, i) => { const es = i === big ? .42 : .3; const e = ball(x, .12 + (i === big ? .03 : 0), .38, es, es, es * .7, 0xffffff, head); const p = ball(0, 0, .42, .5, .5, .3, 0x111111, e); eyes.push(p); });
   ball(0, -.2, .43, .34, .1 + r() * .08, .1, 0x6b2020, head); // mouth
@@ -532,7 +580,7 @@ function makeChar(opts) {
   const torso = mk(SPH, (o.teacher ? 1.15 : 1.0) * s, (o.teacher ? .9 : .78) * s, body);
   if (!o.teacher) ball(0, .05, -.5, .62, .55, .3, 0x444466, torso); else box(0, .15, .48, .12, .4, .04, M(0xe8412c), torso);
   ball(0, -.05, .47, .14, .1, .05, 0xffffff, torso); // belly button / badge
-  const limbs = [mk(CYL, .14 * s, .14 * s, body), mk(CYL, .14 * s, .14 * s, body), mk(CYL, .18 * s, .18 * s, pants), mk(CYL, .18 * s, .18 * s, pants)];
+  const limbs = [mk(CYL, .14 * s, .14 * s, M(o.col)), mk(CYL, .14 * s, .14 * s, M(o.col)), mk(CYL, .18 * s, .18 * s, pants), mk(CYL, .18 * s, .18 * s, pants)];
   const hands = [ball(0, 0, 0, .24 * s, .24 * s, .24 * s, sk, g), ball(0, 0, 0, .24 * s, .24 * s, .24 * s, sk, g)];
   const shoeM = M(o.teacher ? 0x3a2a1a : [0xffffff, 0xe8412c, 0xffd23f, 0x111111][h % 4]);
   const feet = [ball(0, 0, 0, .3 * s, .2 * s, .46 * s, shoeM, g), ball(0, 0, 0, .3 * s, .2 * s, .46 * s, shoeM, g)];
@@ -599,15 +647,17 @@ function renderChar(ch, t, dt) {
     else { for (let i = 0; i < 11; i++) J[i].copy(ch.rg.p[i]); }
   }
   if (!ch.rg) {
-    poseLocal(ch, t);
-    if (ch.blend > 0) { ch.blend = Math.max(0, ch.blend - dt * 3); for (let i = 0; i < 11; i++) J[i].lerp(LP[i], 1 - ch.blend * .85); }
-    else for (let i = 0; i < 11; i++) J[i].copy(LP[i]);
+    ch.aspd = lerp(ch.aspd || 0, ch.spd, 1 - Math.exp(-10 * dt)); const realSpd = ch.spd; ch.spd = ch.aspd;
+    poseLocal(ch, t); ch.spd = realSpd;
+    const jump = !ch.posed || J[2].distanceTo(LP[2]) > 2.5; ch.posed = true;
+    if (jump) { for (let i = 0; i < 11; i++) J[i].copy(LP[i]); ch.blend = 0; }
+    else { const k = ch.blend > 0 ? 1 - Math.exp(-6 * dt) : 1 - Math.exp(-22 * dt); ch.blend = Math.max(0, ch.blend - dt * 2.5); for (let i = 0; i < 11; i++) J[i].lerp(LP[i], k); }
   }
   // torso basis
   _bx.subVectors(J[7], J[8]).normalize(); _by.subVectors(J[1], J[2]); const tl = _by.length(); _by.normalize();
   _bz.crossVectors(_bx, _by).normalize(); _bx.crossVectors(_by, _bz).normalize();
   _basis.makeBasis(_bx, _by, _bz); _q.setFromRotationMatrix(_basis);
-  const tor = ch.torso; tor.position.addVectors(J[1], J[2]).multiplyScalar(.5).addScaledVector(_by, -.05); tor.quaternion.copy(_q); tor.scale.set(tor.userData.w, tl + .5 * ch.sz, tor.userData.d);
+  const tor = ch.torso; tor.position.addVectors(J[1], J[2]).multiplyScalar(.5).addScaledVector(_by, -.05); tor.quaternion.copy(_q); ch.sq = lerp(ch.sq || 0, 0, 1 - Math.exp(-9 * dt)); const breath = ch.rg ? 0 : Math.sin(t * 2.2 + ch.wob) * .025; const sq = clamp(ch.sq, -.35, .35); tor.scale.set(tor.userData.w * (1 - sq * .5 + breath), (tl + .5 * ch.sz) * (1 + sq), tor.userData.d * (1 - sq * .5 + breath));
   ch.head.position.copy(J[0]).addScaledVector(_by, .05 * ch.sz); ch.head.quaternion.copy(_q);
   if (!ch.rg) ch.head.rotateZ(Math.sin(ch.wob * 2.3) * .08);
   ch.hands[0].position.copy(J[3]); ch.hands[1].position.copy(J[4]);
@@ -639,6 +689,8 @@ function genDay(seed, day) {
     if (i > 0 && r() < .28 + day * .08) L.ev = ['supplier', 'absent', 'test', 'director', 'wrongroom', 'alarm', 'director', 'test'][Math.floor(r() * 8)];
     if (L.ev === 'test' || r() < .1 + day * .04) L.test = true;
     if (L.ev === 'wrongroom') { let o; do { o = CLASSROOMS[Math.floor(r() * CLASSROOMS.length)]; } while (o.i === room.i); L.real = o.i; }
+    // Schularbeit: every G.saEvery days the 3rd lesson is an announced exam (cheating allowed, if you dare)
+    if (G.saEvery > 0 && day % G.saEvery === 0 && i === 2) { L.sa = true; L.test = false; L.group = false; if (L.ev !== 'director') L.ev = null; L.real = L.room; }
     L.teacher = L.ev === 'supplier' ? SUP : L.ev === 'absent' ? -1 : ti;
     L.forget = r() < PERS[TEACH[L.teacher < 0 ? ti : L.teacher].pers].forget;
     out.push(L);
@@ -646,7 +698,7 @@ function genDay(seed, day) {
   return out;
 }
 let PLAN = []; let planKey = '';
-function plan() { const k = G.seed + ':' + G.day; if (k !== planKey) { planKey = k; PLAN = genDay(G.seed, G.day); } return PLAN; }
+function plan() { const k = G.seed + ':' + G.day + ':' + G.saEvery; if (k !== planKey) { planKey = k; PLAN = genDay(G.seed, G.day); } return PLAN; }
 function needHW(li, name = ME.name) { const L = plan()[li]; if (!L) return false; return L.group || (hashStr(G.seed + ':' + G.day + ':' + name + ':' + li) % 100) < 82; }
 function lessonRoomIdx(L, el) { if (!L) return -1; if (L.ev === 'wrongroom') return (G.ph === 'lesson' && G.li === L.i && el >= 6) || (G.li > L.i) ? L.real : L.room; return L.room; }
 
@@ -665,7 +717,7 @@ const WSAY = {
 };
 
 const Net = { room: null, me: 'local', solo: true, peers: [], connected: false };
-const G = { ph: 'lobby', day: 1, seed: 1, li: 0, rem: 0, dur: 180, el: 0, goal: 0, tp: 0, ev: [], es: 0, T: [], run: 0, res: null, np: 1, alarms: 0 };
+const G = { saEvery: 3, ph: 'lobby', day: 1, seed: 1, li: 0, rem: 0, dur: 180, el: 0, goal: 0, tp: 0, ev: [], es: 0, T: [], run: 0, res: null, np: 1, alarms: 0 };
 let gRecv = 0, lastHost = null, lastSeenG = null;
 async function netJoin(code) {
   try {
@@ -788,6 +840,7 @@ function hostTeacherTick(dt) {
         const v = pick(inRoom).presence; const back = { x: v.x - Math.sin(v.ry) * 1.1, z: v.z - Math.cos(v.ry) * 1.1 };
         t.x = back.x; t.z = back.z; t.y = room.y; t.ry = v.ry; t.st = 'x'; t.tmr = 3; hev('pop', { w: i }); hsay(i, 'tele'); return;
       }
+      if (L.sa && r < .55) { const a = pick(F.aisles); goTo(t, { x: a.x, y: room.y, z: a.z }, 'sa', 's', null, rnd(2, 3.5)); return; }
       if (r < P.nap) { goTo(t, { x: F.desk.x, y: room.y, z: F.desk.z }, 'nap' + Math.random(), 'n', F.ry, rnd(8, 15)); hsay(i, 'nap'); return; }
       if (r < P.nap + P.board) { goTo(t, { x: F.board.x + rnd(-1.5, 1.5), y: room.y, z: F.board.z }, 'board' + Math.random(), 'b', F.boardRy, rnd(4, 8)); if (Math.random() < .5) hsay(i, 'board'); return; }
       if (r < .62) { const a = pick(F.aisles); goTo(t, { x: a.x, y: room.y, z: a.z }, 'patrol' + Math.random(), 's', null, rnd(2, 3.5)); return; }
@@ -834,6 +887,7 @@ function hostTick(dt) {
       if (L.forget) { hev('toast', { txt: `${TEACH[L.teacher].name} hat die Hausübungskontrolle vergessen!`, k: 'good' }); hsay(L.teacher, ['Hausübung? Ach... egal.', 'Wo waren wir? Ich hab vergessen was ich wollte.']); }
       else { hsay(L.teacher, 'check'); hev('check', { li: G.li }); }
     }
+    if (L.sa && H.testDone !== G.li && G.el > 18 && G.rem > 30 && (!t || ready)) { H.testDone = G.li; hev('sa', { li: G.li }); hev('toast', { txt: `SCHULARBEIT ${L.s.toUpperCase()}! Hefte weg, Handys weg (haha).`, k: 'bad' }); if (t) hsay(L.teacher, ['Schularbeit. Wer schummelt, kriegt einen Fünfer.', 'Ich habe Augen am Hinterkopf.', 'Blatt umdrehen. Jetzt.']); }
     if (L.test && H.testDone !== G.li && G.el > G.dur * .5 && G.rem > 25) { H.testDone = G.li; hev('test', { li: G.li }); hev('toast', { txt: 'UNANGEKÜNDIGTER TEST! Hefte weg!', k: 'bad' }); if (t) hsay(L.teacher, ['Überraschung! Test!', 'Zettel raus. Test. Jetzt.']); }
     if (L.ev === 'alarm' && H.testDone !== 100 + G.li && G.el > G.dur * .7) { H.testDone = 100 + G.li; hostAlarm(null); return; }
     if (G.rem <= 0) hostEndLesson();
@@ -856,7 +910,7 @@ function hostAlarm(peer) {
 function hostAction(from, a) {
   const L = plan()[G.li]; const name = from.presence.n;
   switch (a.t) {
-    case 'start': if (G.ph === 'lobby' || G.ph === 'detention') { G.dur = clamp(+a.dur || 180, 60, 400); G.run++; G.seed = Math.floor(Math.random() * 1e9); hostBeginDay(1); } break;
+    case 'start': if (G.ph === 'lobby' || G.ph === 'detention') { G.dur = clamp(+a.dur || 180, 60, 400); G.saEvery = clamp(Math.round(+a.sa), 0, 7); if (isNaN(G.saEvery)) G.saEvery = 3; G.run++; G.seed = Math.floor(Math.random() * 1e9); hostBeginDay(1); } break;
     case 'sus50': { const t = H.tch[a.w]; if (t && !t.path.length && t.rg <= 0) { t.st = 'x'; t.tmr = 2.2; t.ry = Math.atan2(from.presence.x - t.x, from.presence.z - t.z); hsay(a.w, 'sus', { n: name }); } break; }
     case 'caught': { const t = H.tch[a.w]; if (t && t.rg <= 0) { t.st = 'x'; t.tmr = 2.5; t.path = []; t.ry = Math.atan2(from.presence.x - t.x, from.presence.z - t.z); hsay(a.w, 'caught', { n: name }); }
       if (G.ph === 'lesson') { H.caught++; if (!H.repeated && H.caught >= Math.max(2, Math.ceil(G.np / 2))) { H.repeated = true; G.rem += G.dur * .4; hev('toast', { txt: 'STUNDENWIEDERHOLUNG! Das machen wir nochmal!', k: 'bad' }); } } break; }
@@ -953,7 +1007,7 @@ function activity() {
   let a = 0;
   if (G.ph === 'lesson') {
     const L = curL();
-    if (inLessonRoom()) { a = MG.open && !MG.forced ? 1 : ME.copy ? (ME.copy.phone ? 1.5 : 1.2) : ME.pose === 'phone' ? 1.4 : sprint ? 1 : moving ? .55 : ME.seat ? 0 : .3; }
+    if (inLessonRoom()) { a = ME.cheatT > 0 ? 1.4 : MG.open && !MG.forced ? 1 : ME.copy ? (ME.copy.phone ? 1.5 : 1.2) : ME.pose === 'phone' ? 1.4 : sprint ? 1 : moving ? .55 : ME.seat ? 0 : .3; }
     else if (r.type === 'hall') a = sprint ? 1 : .6;
     if (L && L.ev === 'director' && a > 0) a *= 1.2;
   } else if (G.ph === 'break') { if (r.type === 'hall' && sprint) a = .45; }
@@ -975,7 +1029,9 @@ function updateSus(dt) {
   if (ME.sus >= 100) caught(w);
 }
 function caught(w, heavy = false) {
-  ME.sus = 38; ME.warned = false; if (MG.open && !MG.forced) closeMG(true); ME.copy = null;
+  ME.sus = 38; ME.warned = false; ME.cheatT = 0;
+  if (MG.open && MG.opts && MG.opts.exam) { closeMG(true); toast('SCHULARBEIT ABGENOMMEN! Beim Schummeln erwischt!', 'bad', 4500); addPts(-80, 'Schularbeit: Nicht genügend (Schummeln)'); }
+  if (MG.open && !MG.forced) closeMG(true); ME.copy = null;
   const t = TV[w] || { x: ME.x - 1, z: ME.z }; const dx = ME.x - t.x, dz = ME.z - t.z, d = Math.hypot(dx, dz) || 1;
   myRagdoll(dx / d * 7, 7, dz / d * 7, 2.4); Snd.scream(1.1); flash('red', .45);
   act('caught', { w: Math.max(0, w) });
@@ -1158,6 +1214,7 @@ function hostEvent(e) {
     case 'trg': { const c = tchCh[e.w]; if (c) { startRagdoll(c, e.v[0], e.v[1], e.v[2], 3); Snd.boing(); Snd.whistleDown(); } break; }
     case 'check': onCheck(e.li); break;
     case 'test': onTest(e.li); break;
+    case 'sa': onSA(e.li); break;
     case 'tafel': if (e.p === Net.me) setTimeout(() => startTafel(), 1200); break;
     case 'alarm': onAlarm(e.p); break;
     case 'day': break;
@@ -1190,6 +1247,13 @@ function onTest(li) {
   if (!inLessonRoom()) { toast(myRoom().type === 'toilet' ? 'Du warst am Klo und hast den Test verpasst. Genial.' : 'Test verpasst. Wo bist du überhaupt?', myRoom().type === 'toilet' ? 'good' : 'bad'); return; }
   ME.seat = ME.seat; if (useItem('loesung')) { addPts(100, 'Test: Sehr gut (Testlösungen!)'); return; }
   startMG({ kind: 'quiz', title: 'TEST: ' + plan()[li].s, sub: 'Unangekündigt. Natürlich.', forced: true, test: true, diff: .4 + .25 * (G.day - 1), done: (q, fake) => { const pts = Math.round(90 * q) - (q < .45 ? 25 : 0); addPts(pts, `Test: ${GRADE(q)[1]}`); } });
+}
+function onSA(li) {
+  if (ME.day !== G.day) return; const L = plan()[li];
+  if (!inLessonRoom()) { if (useItem('ausrede')) { toast('Schularbeit verpasst – aber du hast eine Entschuldigung. Nachschreiben irgendwann. Nie.', 'good', 4500); return; } addPts(-60, 'Schularbeit verpasst: Nicht genügend'); return; }
+  if (useItem('loesung')) { addPts(200, `Schularbeit ${L.s}: Sehr gut (gestohlene Lösungen!)`); return; }
+  startMG({ kind: 'exam', title: `📝 SCHULARBEIT: ${L.s}`, sub: 'Schummeln erlaubt. Erwischt werden nicht.', forced: true, test: true, exam: true, diff: .5 + .25 * (G.day - 1),
+    done: (q, fake) => { const [g, gn] = GRADE(q); const pts = Math.round(200 * q) - (q < .45 ? 60 : 0); addPts(pts, `Schularbeit: ${g} (${gn})`); if (g === 1) Snd.fanfare(); } });
 }
 function onAlarm(p) {
   Snd.alarm(); flash('red', .5); let n = 0; const iv = setInterval(() => { flash('red', .3); if (++n > 6) clearInterval(iv); }, 500);
@@ -1238,6 +1302,13 @@ function updateNPC(dt, t) {
 }
 
 // ---------------- remote players / teachers rendering ----------------
+// dead reckoning: estimate velocity from successive network samples, extrapolate up to 0.2 s
+function predict(st, x, y, z, key) {
+  const now = performance.now();
+  if (st.pk !== key) { if (st.pt) { const d = Math.max(.03, (now - st.pt) / 1000); st.v = [(x - st.p[0]) / d, (y - st.p[1]) / d, (z - st.p[2]) / d]; if (Math.hypot(st.v[0], st.v[2]) > 12) st.v = [0, 0, 0]; } st.pk = key; st.pt = now; st.p = [x, y, z]; }
+  const e = Math.min(.2, (now - (st.pt || now)) / 1000); const v = st.v || [0, 0, 0];
+  return [x + v[0] * e, y + v[1] * e * .5, z + v[2] * e];
+}
 function updateRemote(dt, t) {
   const seen = new Set();
   others().forEach(p => {
@@ -1246,8 +1317,9 @@ function updateRemote(dt, t) {
     if (!r || r.col !== q.c || r.name !== q.n) { if (r) removeChar(r.ch); const ch = makeChar({ col: new THREE.Color(q.c || '#888').getHex(), name: q.n }); ch.x = q.x; ch.y = q.y; ch.z = q.z; r = { ch, col: q.c, name: q.n, rgc: q.rgc || 0 }; remote.set(p.peer, r); }
     const ch = r.ch; const k = 1 - Math.exp(-12 * dt);
     if ((q.rgc || 0) !== r.rgc) { r.rgc = q.rgc || 0; const v = q.rv || [0, 5, 0, 2]; startRagdoll(ch, v[0], v[1], v[2], v[3] || 2.4); }
-    const pd = Math.hypot(q.x - ch.x, q.z - ch.z); if (pd > 6) { ch.x = q.x; ch.z = q.z; ch.y = q.y; }
-    ch.x = lerp(ch.x, q.x, k); ch.y = lerp(ch.y, q.y, k); ch.z = lerp(ch.z, q.z, k); ch.ry = lerpAng(ch.ry, q.ry, k);
+    const pr = predict(r, q.x, q.y, q.z, q);
+    const pd = Math.hypot(pr[0] - ch.x, pr[2] - ch.z); if (pd > 6) { ch.x = q.x; ch.z = q.z; ch.y = q.y; }
+    ch.x = lerp(ch.x, pr[0], k); ch.y = lerp(ch.y, pr[1], k); ch.z = lerp(ch.z, pr[2], k); ch.ry = lerpAng(ch.ry, q.ry, k);
     ch.pose = q.po || 'idle'; ch.spd = q.sp || 0; ch.ph += dt * ch.spd * 2.4;
     setLabel(ch.tag, q.n + (q.tag ? ' 🐀PETZE' : ''));
     ch.g.visible = ch.shadow.visible = true;
@@ -1271,7 +1343,7 @@ function updateTeachers(dt, t) {
   (G.T || []).forEach((a, i) => {
     const v = TV[i], c = tchCh[i]; if (!c) return;
     if (!v.init || Math.hypot(a[0] - v.x, a[2] - v.z) > 5) { v.x = a[0]; v.y = a[1]; v.z = a[2]; v.ry = a[3]; v.init = true; }
-    const k = 1 - Math.exp(-10 * dt); v.x = lerp(v.x, a[0], k); v.y = lerp(v.y, a[1], k); v.z = lerp(v.z, a[2], k); v.ry = lerpAng(v.ry, a[3], k);
+    const pr = isHost() ? a : predict(v, a[0], a[1], a[2], a); const k = 1 - Math.exp(-12 * dt); v.x = lerp(v.x, pr[0], k); v.y = lerp(v.y, pr[1], k); v.z = lerp(v.z, pr[2], k); v.ry = lerpAng(v.ry, a[3], k);
     const moving = Math.hypot(a[0] - v.x, a[2] - v.z) > .05 || a[4] === 'w'; v.st = a[4]; v.rg = a[5];
     if (!c.rg) { c.x = v.x; c.y = v.y; c.z = v.z; c.ry = v.ry; }
     c.spd = moving ? PERS[TEACH[i].pers].spd * 1.3 : 0; c.ph += dt * c.spd * 2.2;
@@ -1284,6 +1356,7 @@ function updateTeachers(dt, t) {
 // ---------------- local movement & camera ----------------
 function updateMe(dt, t) {
   if (ME.energyT > 0) ME.energyT -= dt;
+  if (ME.cheatT > 0) ME.cheatT -= dt;
   if (ME.tagT > 0) ME.tagT -= dt;
   if (ME.poseT > 0) { ME.poseT -= dt; if (ME.poseT <= 0) ME.pose = 'idle'; }
   let mx = 0, mz = 0; const busy = MG.open || meCh.rg || G.ph === 'detention';
@@ -1295,17 +1368,20 @@ function updateMe(dt, t) {
   if (meCh.rg) {
     const pv = meCh.rg.p[2]; ME.x = pv.x; ME.z = pv.z; ME.y = Math.max(groundAt(pv.x, pv.z, pv.y + .5), 0); ME.spd = 0;
     if (meCh.rg.t > meCh.rg.dur - .05) { const g = groundAt(ME.x, ME.z, pv.y + .6); ME.y = g; }
-  } else if (ME.seat) { ME.x = ME.seat.x; ME.z = ME.seat.z; ME.y = ME.seat.y; ME.ry = ME.seat.ry; ME.spd = 0; }
+  } else if (ME.seat) { ME.vx = ME.vz = 0; ME.x = ME.seat.x; ME.z = ME.seat.z; ME.y = ME.seat.y; ME.ry = ME.seat.ry; ME.spd = 0; }
   else {
-    let vx = 0, vz = 0;
-    if (mx || mz) { const l = Math.hypot(mx, mz); const fx = -Math.sin(yaw), fz = -Math.cos(yaw); const rx = -fz, rz = fx; vx = (fx * mz - rx * mx) / l * speed; vz = (fz * mz - rz * mx) / l * speed; ME.ry = lerpAng(ME.ry, Math.atan2(vx, vz), Math.min(1, dt * 12)); }
+    let tvx = 0, tvz = 0;
+    if (mx || mz) { const l = Math.hypot(mx, mz); const fx = -Math.sin(yaw), fz = -Math.cos(yaw); const rx = -fz, rz = fx; tvx = (fx * mz - rx * mx) / l * speed; tvz = (fz * mz - rz * mx) / l * speed; ME.ry = lerpAng(ME.ry, Math.atan2(tvx, tvz), 1 - Math.exp(-14 * dt)); }
+    const onGround = ME.y <= groundAt(ME.x, ME.z, ME.y) + .02; const acc = (mx || mz) ? (onGround ? 14 : 5) : (onGround ? 18 : 2);
+    ME.vx = lerp(ME.vx || 0, tvx, 1 - Math.exp(-acc * dt)); ME.vz = lerp(ME.vz || 0, tvz, 1 - Math.exp(-acc * dt));
+    const vx = ME.vx, vz = ME.vz;
     const nx = ME.x + vx * dt, nz = ME.z + vz * dt; const [cx, cz] = collide(ME.x, ME.z, nx, nz, .35, ME.y + .1);
-    ME.spd = Math.hypot(cx - ME.x, cz - ME.z) / Math.max(dt, 1e-3); ME.x = cx; ME.z = cz;
+    ME.spd = Math.hypot(cx - ME.x, cz - ME.z) / Math.max(dt, 1e-3); if (cx !== nx) ME.vx *= .3; if (cz !== nz) ME.vz *= .3; ME.x = cx; ME.z = cz;
     if (Math.abs(ME.x) > 60 || Math.abs(ME.z) > 60) { ME.x = clamp(ME.x, -60, 60); ME.z = clamp(ME.z, -60, 60); }
     const g = groundAt(ME.x, ME.z, ME.y);
-    if (keys.has('Space') && ME.y <= g + .02 && !busy) { ME.vy = 6.5; Snd.boing(); }
+    if (keys.has('Space') && ME.y <= g + .02 && !busy) { ME.vy = 6.5; Snd.boing(); meCh.sq = .3; }
     ME.vy -= 20 * dt; ME.y += ME.vy * dt;
-    if (ME.y <= g) { if (ME.vy < -11) { myRagdoll(0, 2, 0, 1.6); Snd.slap(); toast('Autsch.', 'info'); } ME.y = g; ME.vy = 0; }
+    if (ME.y <= g) { if (ME.vy < -4) meCh.sq = -Math.min(.35, -ME.vy * .03); if (ME.vy < -11) { myRagdoll(0, 2, 0, 1.6); Snd.slap(); toast('Autsch.', 'info'); } ME.y = g; ME.vy = 0; }
     else if (ME.y - g < .25 && ME.vy <= 0 && g > ME.y - .7) { ME.y = g; ME.vy = 0; }
   }
   if (ME.y < -5) { ME.x = -20; ME.z = 0; ME.y = 0; }
@@ -1332,13 +1408,43 @@ function updateMe(dt, t) {
     } else if (inLessonRoom()) { ME.awayT = Math.max(0, ME.awayT - dt * 2); if (ME.awayT < 20) ME.awayWarn = 0; }
   }
 }
-const ray = new THREE.Raycaster(); const camTarget = new THREE.Vector3();
+// ---------- playability helpers: teacher vision cones + waypoint to the classroom ----------
+const cones = [];
+function updateCones(t) {
+  TEACH.forEach((T_, i) => {
+    let c = cones[i];
+    if (!c) { const P = PERS[T_.pers]; const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.CircleGeometry(1, 24, -Math.PI / 2 - P.fov / 2, P.fov), new THREE.MeshBasicMaterial({ color: 0xff3b2f, transparent: true, opacity: .2, depthWrite: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; g.add(m); scene.add(g); c = cones[i] = { g, m }; }
+    const v = TV[i], ch = tchCh[i]; const P = PERS[T_.pers];
+    const show = v.init && !v.rg && 'fsxpwc'.includes(v.st) && Math.abs(v.y - ME.y) < 1.8 && roomAt(v.x, v.z, v.y).name === myRoom().name && G.ph !== 'detention';
+    c.g.visible = show; if (!show) return;
+    const view = P.view * (1 + .07 * (G.day - 1)); c.g.position.set(ch.J[2].x, v.y + .04, ch.J[2].z); c.g.rotation.y = v.ry; c.m.scale.set(view, view, 1);
+    const [s_] = bestWatcher(); c.m.material.opacity = (s_ > 0 && activity() > 0 ? .32 : .16) + Math.sin(t * 6) * .03;
+    c.m.material.color.setHex(v.st === 'c' ? 0xffa53b : 0xff3b2f);
+  });
+}
+const wpArrow = (() => { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.ConeGeometry(.45, .9, 4), new THREE.MeshBasicMaterial({ color: 0xffd23f })); c.rotation.x = Math.PI; g.add(c); const r = new THREE.Mesh(new THREE.TorusGeometry(.6, .07, 6, 20), new THREE.MeshBasicMaterial({ color: 0xffd23f })); r.rotation.x = Math.PI / 2; r.position.y = -1.6; g.add(r); g.visible = false; scene.add(g); return g; })();
+let WP = null;
+function updateWaypoint(t) {
+  WP = null;
+  const L = curL(); if (!L || !['break', 'lesson'].includes(G.ph) || G.ph === 'detention') { wpArrow.visible = false; return; }
+  const ri = lessonRoomIdx(L, gEl(performance.now())); const R = ROOMS[ri]; if (!R || inLessonRoom()) { wpArrow.visible = false; return; }
+  const myF = floorOf(ME.y + .2); let tgt, label = `${R.name} (${R.f ? 'OG' : 'EG'})`;
+  if (myF !== R.f) {
+    const inStairs = ME.x > 12 && ME.z < -2.5;
+    if (!inStairs) tgt = { x: 18, y: myF * FH, z: -2.2 }; else tgt = myF === 0 ? { x: 13.4, y: 0, z: -9.5 } : { x: 21.5, y: FH, z: -9.5 };
+    label = `Stiege → ${label}`;
+  } else tgt = { x: R.doorX, y: R.y, z: R.side * 3.6 };
+  WP = { ...tgt, label, d: Math.hypot(tgt.x - ME.x, tgt.z - ME.z) };
+  wpArrow.visible = true; wpArrow.position.set(tgt.x, tgt.y + 2.6 + Math.sin(t * 4) * .2, tgt.z); wpArrow.rotation.y = t * 2;
+}
+const ray = new THREE.Raycaster(); const camTarget = new THREE.Vector3(); let camD = 4.6;
 function updateCamera(dt) {
   const head = meCh.rg ? meCh.rg.p[1] : _v.set(ME.x, ME.y + 1.55, ME.z);
-  camTarget.lerp(head, meCh.rg ? .15 : .35); if (camTarget.distanceTo(head) > 6) camTarget.copy(head);
+  camTarget.lerp(head, 1 - Math.exp(-(meCh.rg ? 6 : 16) * dt)); if (camTarget.distanceTo(head) > 6) camTarget.copy(head);
   const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
   let d = camDist; ray.set(camTarget, dir); ray.far = camDist + .3; const hit = ray.intersectObjects(camBlockers, false)[0]; if (hit) d = Math.max(.6, hit.distance - .3);
-  camera.position.copy(camTarget).addScaledVector(dir, d);
+  camD = d < camD ? d : lerp(camD, d, 1 - Math.exp(-4 * dt));
+  camera.position.copy(camTarget).addScaledVector(dir, camD);
   const ceil = floorOf(ME.y + .2) * FH + 3.75; if (Math.abs(ME.x) < 24 && Math.abs(ME.z) < 12 && camera.position.y > ceil) camera.position.y = ceil;
   if (ME.energyT > 0) { camera.position.x += Math.sin(performance.now() / 40) * .03; }
   camera.lookAt(camTarget);
@@ -1393,7 +1499,32 @@ const ORDER_SETS = [
   ['Raupe', 'Mehr Raupe', 'Kokon', 'Schmetterling', 'Schmetterling mit Sonnenbrille'],
 ];
 const SHAPES = { Stern: (() => { const p = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? .45 : 1; p.push([Math.cos(a) * r, Math.sin(a) * r]); } return p; })(), Haus: [[-1, 1], [-1, -.1], [0, -1], [1, -.1], [1, 1]], Fisch: [[-1, 0], [-.3, -.6], [.5, -.3], [1, -.7], [1, .7], [.5, .3], [-.3, .6]], Blitz: [[-.2, -1], [.5, -1], [.1, -.15], [.6, -.15], [-.4, 1], [-.05, .1], [-.5, .1]] };
+function cheat(kind) {
+  ME.cheatT = kind === 'phone' ? 3 : kind === 'look' ? 2 : 1;
+  const extra = { phone: 26, look: 16, spick: 7 }[kind]; spikeIfSeen(extra);
+  if (kind === 'phone') { setPose('phone', 2); Snd.click(); } else if (kind === 'look') { Snd.huh(); } else Snd.paper();
+}
 const GAMES = {
+  exam(el, o) {
+    const N = 8; const pool = [...QUIZ].sort(() => Math.random() - .5); const qs = [];
+    for (let k = 0; k < N; k++) { if (k % 3 === 2) { const a = rint(3, 9 + Math.round(o.diff * 3)), b = rint(3, 12); const w = [a * b + rint(1, 4), a * b - rint(1, 5), a + b]; qs.push([`${a} · ${b} = ?`, [String(a * b), ...w.map(String)]]); } else qs.push(pool.pop()); }
+    let i = 0, score = 0, tTot = 1, tLeft = 1, revealed = false;
+    el.insertAdjacentHTML('beforeend', '<div class="mgq" style="font-size:21px"></div><div class="opts"></div><div class="cheats" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:14px"><b>Schummeln:</b></div><div class="mgInfo" style="font-size:14px;min-height:18px"></div>');
+    const q = el.querySelector('.mgq'), opts = el.querySelector('.opts'), cbox = el.querySelector('.cheats'), info = el.querySelector('.mgInfo'); const bar = timerBar(el);
+    const mkBtn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'sec'; b.style.fontSize = '14px'; b.style.padding = '3px 8px'; b.textContent = label; b.onclick = fn; cbox.appendChild(b); return b; };
+    const reveal = (sure, src) => { if (revealed) return; revealed = true; const right = [...opts.children].find(b => b.dataset.k === '0'); const wrong = [...opts.children].filter(b => b.dataset.k !== '0'); const shown = sure || Math.random() < .65 ? right : pick(wrong); shown.style.outline = '4px solid var(--green)'; info.textContent = src; };
+    mkBtn('👀 Beim Nachbarn abschauen', () => { cheat('look'); reveal(false, 'Dein Nachbar hat das angekreuzt... hoffentlich weiß er es.'); });
+    mkBtn('📱 Handy unterm Tisch', () => { cheat('phone'); reveal(true, 'Google sagt: das Grüne.'); });
+    const spickBtn = mkBtn('📜 Spickzettel', () => { const it = ['spick', 'rechner'].find(k => ME.items.includes(k)); if (!it) { info.textContent = 'Du hast keinen Spickzettel. Bibliothek!'; return; } useItem(it); cheat('spick'); reveal(true, `${ITEMS[it].name} benutzt.`); });
+    function next() {
+      if (i >= N) return o.finish(score / N); const [txt, ans] = qs[i++]; q.textContent = `${i}/${N}: ${txt}`; revealed = false; info.textContent = '';
+      tTot = Math.max(5, (11 - o.diff * 1.5) * o.timeMul); tLeft = tTot; opts.innerHTML = '';
+      spickBtn.disabled = !['spick', 'rechner'].some(k => ME.items.includes(k));
+      [...ans].map((a, k) => [a, k]).sort(() => Math.random() - .5).forEach(([a, k]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.k = k; b.textContent = a; b.onclick = () => { if (k === 0) { score += .7 + .3 * tLeft / tTot; Snd.coin(); } else Snd.buzz(); next(); }; opts.appendChild(b); });
+    }
+    const iv = setInterval(() => { tLeft -= .05; bar.style.width = (100 * tLeft / tTot) + '%'; if (tLeft <= 0) { Snd.buzz(); next(); } }, 50);
+    next(); return () => clearInterval(iv);
+  },
   math(el, o) {
     const N = 5; let i = 0, score = 0, ans = 0, tTot = 1, tLeft = 1;
     el.insertAdjacentHTML('beforeend', '<div class="mgq"></div><input type="text" id="mgIn" inputmode="numeric" autocomplete="off" aria-label="Antwort"><div class="mgInfo" style="text-align:center;font-size:15px"></div>');
@@ -1490,7 +1621,7 @@ function hudTick(now) {
     const need = needHW(i); const q = ME.hw[i];
     let hw = !need ? '<span class="sub">keine HÜ</span>' : l.group && bestOf(i)[0] >= 0 ? `<span class="hwok">👥 ✔ ${Math.round(bestOf(i)[0] * 100)}%</span>` : q >= 0 ? `<span class="hwok">✔ ${Math.round(q * 100)}%${ME.hf[i] ? ' 🤥' : ''}</span>` : '<span class="hwno">✘ HÜ fehlt</span>';
     if (ME.checked[i] && ME.nach !== i) hw = '<span class="sub">kontrolliert</span>'; if (ME.nach === i) hw = '<span class="hwno">⏰ nachreichen!</span>';
-    const flags = (l.group ? ' 👥' : '') + (ME.knowTests && l.test ? ' 📝TEST' : '');
+    const flags = (l.group ? ' 👥' : '') + (l.sa ? ' <b style="color:var(--red)">📝SCHULARBEIT</b>' : '') + (ME.knowTests && l.test ? ' 📝TEST' : '');
     const cls = (i === G.li && ['lesson', 'break'].includes(G.ph) ? 'cur' : '') + (i < G.li ? ' past' : '');
     return `<div class="lrow ${cls}" data-li="${i}"><span class="n">${i + 1}.</span><span>${SUBJ[l.s].icon} ${esc(l.s)}${flags}<br><span class="sub">${moved ? `<s>${esc(ROOMS[l.room].name)}</s> → ` : ''}${esc(rn.name)} (${rn.f ? 'OG' : 'EG'}) · ${esc(tch.name)}</span></span><span class="hw">${hw}</span></div>`;
   }).join('');
@@ -1524,6 +1655,8 @@ function hudTick(now) {
     else if (G.ph === 'lesson' && !inLessonRoom() && cur && cur.teacher >= 0) p = `Du solltest in ${ROOMS[lessonRoomIdx(cur, el)].name} sein!`;
   }
   $('#prompt').textContent = p;
+  const wp = $('#wp'); if (WP && !MG.open) { const fa = Math.atan2(-Math.sin(yaw), -Math.cos(yaw)); const rel = angDiff(fa, Math.atan2(WP.x - ME.x, WP.z - ME.z)); wp.hidden = false; $('#wpArrow').style.transform = `rotate(${-rel}rad)`; $('#wpText').textContent = `${WP.label} · ${Math.round(WP.d)} m`; } else wp.hidden = true;
+  $('#lockHint').hidden = !(document.pointerLockElement !== canvas && !MG.open && G.ph !== 'detention');
   $('#netState').textContent = Net.solo ? 'Solo · offline' : `${Net.connected ? 'Online' : 'Verbinde...'} · ${G.np} Spieler · Klasse ${CODE}${isHost() ? ' · Host' : ''}`;
 }
 $('#planRows').addEventListener('click', e => { const r = e.target.closest('.lrow'); if (r && !MG.open) openHW(+r.dataset.li); });
@@ -1540,7 +1673,7 @@ function phaseCheck(dt) {
     Object.assign(ME, { pts: 0, hw: [-1, -1, -1, -1], hf: [0, 0, 0, 0], checked: {}, nach: -1, pendLate: -1, knowTests: false, sus: 0, day: G.day, run: G.run, awayT: 0, awayWarn: 0 });
     if (G.ph === 'break' && G.li === 0) { ME.x = rnd(-22, -18); ME.z = rnd(-1.5, 1.5); ME.y = 0; ME.seat = null; yaw = -Math.PI / 2; ME.ry = Math.PI / 2; }
     if (newRun && G.day === 1) ME.items = [];
-    showBig(`<h2>Tag ${G.day}: ${DAYNAMES[(G.day - 1) % 7]}</h2><p>Klassenziel: <b>${G.goal}</b> Punkte.<br>Hausübungen hat natürlich niemand gemacht.</p><p style="font-size:15px">Erste Stunde: ${plan()[0].s} in ${ROOMS[plan()[0].room].name}</p>`, 5);
+    showBig(`<h2>Tag ${G.day}: ${DAYNAMES[(G.day - 1) % 7]}</h2><p>Klassenziel: <b>${G.goal}</b> Punkte.<br>Hausübungen hat natürlich niemand gemacht.</p><p style="font-size:15px">Erste Stunde: ${plan()[0].s} in ${ROOMS[plan()[0].room].name}</p>${plan().some(l => l.sa) ? `<p style="color:var(--red);font-size:18px">⚠️ Heute: SCHULARBEIT in ${plan().find(l => l.sa).s} (3. Stunde)! Spickzettel besorgen!</p>` : G.saEvery ? `<p style="font-size:14px">Nächste Schularbeit: Tag ${Math.ceil(G.day / G.saEvery) * G.saEvery === G.day ? G.day + G.saEvery : Math.ceil(G.day / G.saEvery) * G.saEvery}</p>` : ''}`, 6);
     Snd.fanfare();
   }
   if (G.ph !== prevPh || G.li !== prevLi) {
@@ -1621,7 +1754,7 @@ const genCode = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ2
     $('#lobbyNote').textContent = online ? `Klasse ${CODE}: Freunde öffnen dieselbe Seite und geben den gleichen Code ein. Jeder kann starten.` : 'Mehrspieler ist hier nicht verfügbar – du spielst solo. (Auf claude.ai geteilt funktioniert der Klassen-Code.)';
     started = true;
   };
-  $('#startBtn').onclick = () => { act('start', { dur: +$('#lenSel').value }); $('#startBtn').textContent = 'Startet...'; };
+  $('#startBtn').onclick = () => { act('start', { dur: +$('#lenSel').value, sa: +$('#saSel').value }); $('#startBtn').textContent = 'Startet...'; };
 })();
 function lobbyTick() {
   const list = allPlayers().filter(p => p.presence.n).map(p => `<span class="pchip"><i style="background:${esc(p.isMe ? ME.color : p.presence.c)}"></i>${esc(p.isMe ? ME.name + ' (du)' : p.presence.n)}</span>`).join('');
@@ -1652,6 +1785,7 @@ function frame(now) {
     if (inGame && G.ph === 'detention') updateCut(dt, t);
     else if (inGame) { updateMe(dt, t); updateSus(dt); checkBananas(); updateCamera(dt); }
     else renderChar(meCh, t, dt);
+    if (inGame && G.ph !== 'detention') { updateCones(t); updateWaypoint(t); } else { wpArrow.visible = false; cones.forEach(c => c && (c.g.visible = false)); }
     meCh.g.visible = meCh.shadow.visible = G.ph !== 'detention';
     updateRemote(dt, t); updateTeachers(dt, t); updateWanderers(dt, t); updateNPC(dt, t); updateProjs(dt);
     sendPresence(now);

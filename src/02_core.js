@@ -130,6 +130,40 @@ const BOX = new THREE.BoxGeometry(1, 1, 1);
 function box(x, y, z, w, h, d, mat, parent = scene) { const m = new THREE.Mesh(BOX, typeof mat === 'number' ? M(mat) : mat); m.scale.set(w, h, d); m.position.set(x, y, z); parent.add(m); return m; }
 function canvasTex(w, h, draw, rep) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); } return t; }
 function texMat(w, h, draw, rep) { return new THREE.MeshLambertMaterial({ map: canvasTex(w, h, draw, rep) }); }
+// ---------- procedural textures (generated in code, no image files) ----------
+const texCache = {};
+function cTex(key, w, h, draw) { if (texCache[key]) return texCache[key]; const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return (texCache[key] = t); }
+const hex = c => '#' + new THREE.Color(c).getHexString();
+function shade(c, f) { const col = new THREE.Color(c); col.multiplyScalar(f); return '#' + col.getHexString(); }
+function noiseFill(g, w, h, base, amt = 14, n = 900) { g.fillStyle = base; g.fillRect(0, 0, w, h); for (let i = 0; i < n; i++) { const v = (Math.random() - .5) * amt; g.fillStyle = v > 0 ? `rgba(255,255,255,${v / 100})` : `rgba(0,0,0,${-v / 100})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); } }
+const SHIRTS = ['stripes', 'dots', 'number', 'star', 'hoodie', 'check', 'zigzag', 'plain'];
+function shirtTex(col, kind, seed) {
+  return cTex('shirt' + col + kind + seed, 256, 128, (g, w, h) => {
+    const base = hex(col), dark = shade(col, .72), light = shade(col, 1.25); noiseFill(g, w, h, base, 10, 600);
+    g.fillStyle = dark;
+    if (kind === 'stripes') for (let y = 6; y < h; y += 22) g.fillRect(0, y, w, 9);
+    else if (kind === 'dots') { g.fillStyle = light; for (let y = 10; y < h; y += 22) for (let x = (y / 22 % 2) * 11; x < w; x += 22) { g.beginPath(); g.arc(x, y, 5, 0, 7); g.fill(); } }
+    else if (kind === 'check') { g.globalAlpha = .45; for (let x = 0; x < w; x += 24) g.fillRect(x, 0, 10, h); for (let y = 0; y < h; y += 24) g.fillRect(0, y, w, 10); g.globalAlpha = 1; }
+    else if (kind === 'zigzag') { g.strokeStyle = light; g.lineWidth = 6; g.beginPath(); for (let x = 0; x <= w; x += 16) g.lineTo(x, 60 + (x / 16 % 2 ? 14 : -14)); g.stroke(); }
+    else if (kind === 'number') { g.fillStyle = '#fffdf2'; g.font = 'bold 44px Impact, sans-serif'; g.textAlign = 'center'; g.fillText(String(seed % 99 + 1), w * .25, 82); g.fillRect(0, 118, w, 6); }
+    else if (kind === 'star') { g.fillStyle = '#ffd23f'; g.save(); g.translate(w * .25, 64); g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 9 : 22; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.fill(); g.restore(); }
+    else if (kind === 'hoodie') { g.fillRect(w * .12, 70, w * .26, 30); g.strokeStyle = '#fffdf2'; g.lineWidth = 3; g.beginPath(); g.moveTo(w * .22, 0); g.lineTo(w * .22, 34); g.moveTo(w * .28, 0); g.lineTo(w * .28, 34); g.stroke(); }
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, h - 10, w, 10); // hem shadow
+  });
+}
+function faceTex(skin, seed) {
+  return cTex('face' + skin + seed, 256, 128, (g, w, h) => {
+    const r = mulberry(seed); noiseFill(g, w, h, hex(skin), 8, 400);
+    const fx = w * .25; g.fillStyle = 'rgba(255,90,110,.35)'; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(fx + sd * 26, h * .58, 13, 8, 0, 0, 7); g.fill(); });
+    if (r() < .6) { g.fillStyle = 'rgba(140,70,30,.55)'; for (let i = 0; i < 14; i++) g.fillRect(fx + (r() - .5) * 60, h * .52 + (r() - .5) * 12, 2, 2); }
+    g.strokeStyle = 'rgba(40,25,15,.85)'; g.lineWidth = 4; g.lineCap = 'round'; const angry = r() < .4 ? 1 : -1;
+    [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(fx + sd * 8, h * .3 + angry * sd * -3); g.lineTo(fx + sd * 26, h * .3 - angry * sd * -3); g.stroke(); });
+  });
+}
+const DENIM = () => cTex('denim', 64, 64, (g, w, h) => { noiseFill(g, w, h, '#ffffff', 30, 500); g.strokeStyle = 'rgba(0,0,0,.15)'; for (let x = 0; x < w; x += 3) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 8, h); g.stroke(); } });
+const TWEED = () => cTex('tweed', 64, 64, (g, w, h) => { noiseFill(g, w, h, '#ffffff', 26, 700); g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 2; for (let y = 0; y < h; y += 8) for (let x = 0; x < w; x += 8) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4, y + ((x / 8) % 2 ? 6 : -6) + 4); g.stroke(); } });
+const texMatCache = {};
+function TM(col, tex, key) { const k = col + ':' + key; return texMatCache[k] || (texMatCache[k] = new THREE.MeshLambertMaterial({ color: col, map: tex })); }
 const checker = (a, b) => (g, w, h) => { g.fillStyle = a; g.fillRect(0, 0, w, h); g.fillStyle = b; g.fillRect(0, 0, w / 2, h / 2); g.fillRect(w / 2, h / 2, w / 2, h / 2); };
 
 // --- layout ---
@@ -170,9 +204,10 @@ function roomAt(x, z, y) {
 const WALLS = []; // {x0,x1,z0,z1,f,maxY?}
 const camBlockers = [];
 const wallMatFor = t => ({ class: 0xd9ecd4, toilet: 0xcfe3f0, staff: 0xf0dcc0, office: 0xe6d0e8, library: 0xeee2c4, buffet: 0xffe0b0, stairs: 0xdcdcdc }[t] || 0xe8e4d4);
+const WALLTEX = () => cTex('wall', 32, 256, (g, w, h) => { noiseFill(g, w, h, '#ffffff', 12, 300); g.fillStyle = 'rgba(60,80,70,.28)'; g.fillRect(0, h * .62, w, h * .38); g.fillStyle = 'rgba(40,50,45,.55)'; g.fillRect(0, h * .61, w, 5); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, h - 10, w, 10); });
 function wall(x0, x1, z0, z1, f, col = 0xe8e4d4, h = WH, collide = true) {
   if (x1 - x0 < 0.01 || z1 - z0 < 0.01) return;
-  const m = box((x0 + x1) / 2, f * FH + h / 2, (z0 + z1) / 2, x1 - x0, h, z1 - z0, col);
+  const m = box((x0 + x1) / 2, f * FH + h / 2, (z0 + z1) / 2, x1 - x0, h, z1 - z0, h > 3 ? TM(col, WALLTEX(), 'wall') : M(col));
   camBlockers.push(m);
   if (collide) WALLS.push({ x0, x1, z0, z1, f });
   return m;
@@ -335,17 +370,19 @@ function setLabel(s, text) {
   g.fillStyle = u.fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 47, 490); u.t.needsUpdate = true;
   s.scale.set(3.4 * u.scale, .64 * u.scale, 1);
 }
-const SPH = new THREE.SphereGeometry(.5, 16, 12), CYL = new THREE.CylinderGeometry(.5, .5, 1, 10), CONE = new THREE.ConeGeometry(.5, 1, 12), TOR = new THREE.TorusGeometry(.5, .09, 6, 16);
+const SPH = new THREE.SphereGeometry(.5, 20, 14), CYL = new THREE.CylinderGeometry(.5, .5, 1, 10), CONE = new THREE.ConeGeometry(.5, 1, 12), TOR = new THREE.TorusGeometry(.5, .09, 6, 16);
 function ball(x, y, z, sx, sy, sz, mat, parent) { const m = new THREE.Mesh(SPH, typeof mat === 'number' ? M(mat) : mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); parent.add(m); return m; }
 function makeChar(opts) {
   const o = Object.assign({ col: 0xe8412c, skin: 0xf2c79b, hair: 0x4a2a12, pants: 0x2b3a67, sz: 1, teacher: false, name: '', hat: -1 }, opts);
   const g = new THREE.Group(); scene.add(g);
   const h = hashStr(o.name + o.col); const r = mulberry(h);
-  const sk = M(o.skin), body = M(o.col), pants = M(o.pants);
+  const kind = o.teacher ? 'tweed' : (o.shirt || SHIRTS[h % SHIRTS.length]);
+  const sk = M(o.skin), body = o.teacher ? TM(o.col, TWEED(), 'tweed') : new THREE.MeshLambertMaterial({ map: shirtTex(o.col, kind, h % 97) }), pants = TM(o.pants, DENIM(), 'denim');
+  const faceM = new THREE.MeshLambertMaterial({ map: faceTex(o.skin, h % 53) });
   const mk = (geo, w, d, mat) => { const m = new THREE.Mesh(geo, mat); m.userData.w = w; m.userData.d = d; g.add(m); return m; };
   const s = o.sz;
   // big round potato head
-  const head = new THREE.Mesh(SPH, sk); head.scale.setScalar((o.teacher ? .78 : .74) * s); g.add(head);
+  const head = new THREE.Mesh(SPH, faceM); head.scale.setScalar((o.teacher ? .78 : .74) * s); g.add(head);
   const eyes = []; const big = r() < .5 ? 0 : 1;
   [-.21, .21].forEach((x, i) => { const es = i === big ? .42 : .3; const e = ball(x, .12 + (i === big ? .03 : 0), .38, es, es, es * .7, 0xffffff, head); const p = ball(0, 0, .42, .5, .5, .3, 0x111111, e); eyes.push(p); });
   ball(0, -.2, .43, .34, .1 + r() * .08, .1, 0x6b2020, head); // mouth
@@ -368,7 +405,7 @@ function makeChar(opts) {
   const torso = mk(SPH, (o.teacher ? 1.15 : 1.0) * s, (o.teacher ? .9 : .78) * s, body);
   if (!o.teacher) ball(0, .05, -.5, .62, .55, .3, 0x444466, torso); else box(0, .15, .48, .12, .4, .04, M(0xe8412c), torso);
   ball(0, -.05, .47, .14, .1, .05, 0xffffff, torso); // belly button / badge
-  const limbs = [mk(CYL, .14 * s, .14 * s, body), mk(CYL, .14 * s, .14 * s, body), mk(CYL, .18 * s, .18 * s, pants), mk(CYL, .18 * s, .18 * s, pants)];
+  const limbs = [mk(CYL, .14 * s, .14 * s, M(o.col)), mk(CYL, .14 * s, .14 * s, M(o.col)), mk(CYL, .18 * s, .18 * s, pants), mk(CYL, .18 * s, .18 * s, pants)];
   const hands = [ball(0, 0, 0, .24 * s, .24 * s, .24 * s, sk, g), ball(0, 0, 0, .24 * s, .24 * s, .24 * s, sk, g)];
   const shoeM = M(o.teacher ? 0x3a2a1a : [0xffffff, 0xe8412c, 0xffd23f, 0x111111][h % 4]);
   const feet = [ball(0, 0, 0, .3 * s, .2 * s, .46 * s, shoeM, g), ball(0, 0, 0, .3 * s, .2 * s, .46 * s, shoeM, g)];
@@ -435,15 +472,17 @@ function renderChar(ch, t, dt) {
     else { for (let i = 0; i < 11; i++) J[i].copy(ch.rg.p[i]); }
   }
   if (!ch.rg) {
-    poseLocal(ch, t);
-    if (ch.blend > 0) { ch.blend = Math.max(0, ch.blend - dt * 3); for (let i = 0; i < 11; i++) J[i].lerp(LP[i], 1 - ch.blend * .85); }
-    else for (let i = 0; i < 11; i++) J[i].copy(LP[i]);
+    ch.aspd = lerp(ch.aspd || 0, ch.spd, 1 - Math.exp(-10 * dt)); const realSpd = ch.spd; ch.spd = ch.aspd;
+    poseLocal(ch, t); ch.spd = realSpd;
+    const jump = !ch.posed || J[2].distanceTo(LP[2]) > 2.5; ch.posed = true;
+    if (jump) { for (let i = 0; i < 11; i++) J[i].copy(LP[i]); ch.blend = 0; }
+    else { const k = ch.blend > 0 ? 1 - Math.exp(-6 * dt) : 1 - Math.exp(-22 * dt); ch.blend = Math.max(0, ch.blend - dt * 2.5); for (let i = 0; i < 11; i++) J[i].lerp(LP[i], k); }
   }
   // torso basis
   _bx.subVectors(J[7], J[8]).normalize(); _by.subVectors(J[1], J[2]); const tl = _by.length(); _by.normalize();
   _bz.crossVectors(_bx, _by).normalize(); _bx.crossVectors(_by, _bz).normalize();
   _basis.makeBasis(_bx, _by, _bz); _q.setFromRotationMatrix(_basis);
-  const tor = ch.torso; tor.position.addVectors(J[1], J[2]).multiplyScalar(.5).addScaledVector(_by, -.05); tor.quaternion.copy(_q); tor.scale.set(tor.userData.w, tl + .5 * ch.sz, tor.userData.d);
+  const tor = ch.torso; tor.position.addVectors(J[1], J[2]).multiplyScalar(.5).addScaledVector(_by, -.05); tor.quaternion.copy(_q); ch.sq = lerp(ch.sq || 0, 0, 1 - Math.exp(-9 * dt)); const breath = ch.rg ? 0 : Math.sin(t * 2.2 + ch.wob) * .025; const sq = clamp(ch.sq, -.35, .35); tor.scale.set(tor.userData.w * (1 - sq * .5 + breath), (tl + .5 * ch.sz) * (1 + sq), tor.userData.d * (1 - sq * .5 + breath));
   ch.head.position.copy(J[0]).addScaledVector(_by, .05 * ch.sz); ch.head.quaternion.copy(_q);
   if (!ch.rg) ch.head.rotateZ(Math.sin(ch.wob * 2.3) * .08);
   ch.hands[0].position.copy(J[3]); ch.hands[1].position.copy(J[4]);

@@ -23,6 +23,10 @@ Die Apps sind noch nicht signiert:
 - **macOS:** Beim ersten Start meldet Gatekeeper „App ist beschädigt“ oder „nicht verifizierter Entwickler“. Lösung: App in „Programme“ ziehen, dann im Terminal `xattr -dr com.apple.quarantine "/Applications/School With Your Friends.app"` ausführen (oder Rechtsklick → Öffnen bzw. Systemeinstellungen → Datenschutz & Sicherheit → „Trotzdem öffnen“).
 - **Windows:** SmartScreen warnt „Der Computer wurde durch Windows geschützt“. Auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken.
 
+## Schularbeiten
+
+Alle paar Tage (in der Lobby einstellbar) ist die 3. Stunde eine Schularbeit. Im Test kann man beim Nachbarn abschauen, das Handy unterm Tisch benutzen oder einen Spickzettel ziehen. Wer dabei vom Lehrer gesehen wird, riskiert, dass die Schularbeit abgenommen wird.
+
 ## Steuerung
 
 | Taste | Aktion |
