@@ -3,6 +3,7 @@ const ME = { name: 'Schüler', color: COLORS[0], x: -20, y: 0, z: 0, ry: Math.PI
 let meCh = null; const remote = new Map(); const tchCh = []; const npcCh = []; const wanCh = []; const WV = WAND.map(() => ({ x: 0, y: -50, z: 0, ry: 0, init: false })); const projs = []; const bananas = new Map();
 let started = false, yaw = -Math.PI / 2, pitch = .35, camDist = 4.6;
 const keys = new Set();
+let jumpBuffer = 0, coyoteTime = 0;
 const meName = () => ME.name;
 
 function initChars() {
@@ -22,10 +23,11 @@ addEventListener('keydown', e => {
   keys.add(e.code);
   if (e.code === 'Escape' && MG.open && !MG.forced) { closeMG(); return; }
   if (MG.open) return;
+  if (e.code === 'Space') jumpBuffer = .14;
   onKey(e.code);
 });
 addEventListener('keyup', e => keys.delete(e.code));
-addEventListener('blur', () => keys.clear());
+addEventListener('blur', () => { keys.clear(); jumpBuffer = 0; });
 let dragging = false;
 canvas.addEventListener('mousedown', e => { Snd.init(); dragging = true; if (started && !MG.open && document.pointerLockElement !== canvas) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (err) { } } });
 addEventListener('mouseup', () => dragging = false);
@@ -66,7 +68,7 @@ function teacherSees(i, x, y, z) {
 }
 function bestWatcher() { let b = 0, w = -1; TEACH.forEach((_, i) => { const s = teacherSees(i, ME.x, ME.y + .5, ME.z); if (s > b) { b = s; w = i; } }); return [b, w]; }
 function activity() {
-  const r = myRoom(); const moving = ME.spd > .5, sprint = ME.spd > 5;
+  const r = myRoom(); const moving = ME.spd > .5, sprint = moving && (keys.has('ShiftLeft') || keys.has('ShiftRight'));
   if (r.type === 'staff') return 1.7; if (r.type === 'office') return 1.2; if (r.type === 'toilet') return 0;
   if (meCh.rg) return .5;
   let a = 0;
@@ -426,28 +428,42 @@ function updateMe(dt, t) {
   if (ME.poseT > 0) { ME.poseT -= dt; if (ME.poseT <= 0) ME.pose = 'idle'; }
   let mx = 0, mz = 0; const busy = MG.open || meCh.rg || G.ph === 'detention';
   if (!busy) { if (keys.has('KeyW') || keys.has('ArrowUp')) mz += 1; if (keys.has('KeyS') || keys.has('ArrowDown')) mz -= 1; if (keys.has('KeyA') || keys.has('ArrowLeft')) mx += 1; if (keys.has('KeyD') || keys.has('ArrowRight')) mx -= 1; }
+  if (busy || ME.seat) { jumpBuffer = 0; coyoteTime = 0; }
   if ((mx || mz) && ME.seat) { ME.seat = null; Snd.squeak(); }
   if (ME.copy && (mx || mz)) { ME.copy = null; toast('Abschreiben abgebrochen.', 'info'); }
   const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
-  let speed = (sprint ? 6.4 : 3.8) * (ME.energyT > 0 ? 1.6 : 1);
+  let speed = (sprint ? 8.5 : 5.0) * (ME.energyT > 0 ? 1.6 : 1);
   if (meCh.rg) {
-    const pv = meCh.rg.p[2]; ME.x = pv.x; ME.z = pv.z; ME.y = Math.max(groundAt(pv.x, pv.z, pv.y + .5), 0); ME.spd = 0;
+    ME.vx = ME.vz = ME.vy = 0; const pv = meCh.rg.p[2]; ME.x = pv.x; ME.z = pv.z; ME.y = Math.max(groundAt(pv.x, pv.z, pv.y + .5), 0); ME.spd = 0;
     if (meCh.rg.t > meCh.rg.dur - .05) { const g = groundAt(ME.x, ME.z, pv.y + .6); ME.y = g; }
-  } else if (ME.seat) { ME.vx = ME.vz = 0; ME.x = ME.seat.x; ME.z = ME.seat.z; ME.y = ME.seat.y; ME.ry = ME.seat.ry; ME.spd = 0; }
+  } else if (ME.seat) { ME.vx = ME.vz = ME.vy = 0; ME.x = ME.seat.x; ME.z = ME.seat.z; ME.y = ME.seat.y; ME.ry = ME.seat.ry; ME.spd = 0; }
   else {
-    let tvx = 0, tvz = 0;
-    if (mx || mz) { const l = Math.hypot(mx, mz); const fx = -Math.sin(yaw), fz = -Math.cos(yaw); const rx = -fz, rz = fx; tvx = (fx * mz - rx * mx) / l * speed; tvz = (fz * mz - rz * mx) / l * speed; ME.ry = lerpAng(ME.ry, Math.atan2(tvx, tvz), 1 - Math.exp(-14 * dt)); }
-    const onGround = ME.y <= groundAt(ME.x, ME.z, ME.y) + .02; const acc = (mx || mz) ? (onGround ? 14 : 5) : (onGround ? 18 : 2);
-    ME.vx = lerp(ME.vx || 0, tvx, 1 - Math.exp(-acc * dt)); ME.vz = lerp(ME.vz || 0, tvz, 1 - Math.exp(-acc * dt));
-    const vx = ME.vx, vz = ME.vz;
-    const nx = ME.x + vx * dt, nz = ME.z + vz * dt; const [cx, cz] = collide(ME.x, ME.z, nx, nz, .35, ME.y + .1);
-    ME.spd = Math.hypot(cx - ME.x, cz - ME.z) / Math.max(dt, 1e-3); if (cx !== nx) ME.vx *= .3; if (cz !== nz) ME.vz *= .3; ME.x = cx; ME.z = cz;
-    if (Math.abs(ME.x) > 60 || Math.abs(ME.z) > 60) { ME.x = clamp(ME.x, -60, 60); ME.z = clamp(ME.z, -60, 60); }
-    const g = groundAt(ME.x, ME.z, ME.y);
-    if (keys.has('Space') && ME.y <= g + .02 && !busy) { ME.vy = 6.5; Snd.boing(); meCh.sq = .3; }
-    ME.vy -= 20 * dt; ME.y += ME.vy * dt;
-    if (ME.y <= g) { if (ME.vy < -4) meCh.sq = -Math.min(.35, -ME.vy * .03); if (ME.vy < -11) { myRagdoll(0, 2, 0, 1.6); Snd.slap(); toast('Autsch.', 'info'); } ME.y = g; ME.vy = 0; }
-    else if (ME.y - g < .25 && ME.vy <= 0 && g > ME.y - .7) { ME.y = g; ME.vy = 0; }
+    // Small physics steps keep boosted sprint from crossing thin walls and
+    // keep ramp grounding/jump arcs consistent at low render frame rates.
+    const steps = Math.max(1, Math.ceil(dt * 120)), stepDt = dt / steps;
+    for (let step = 0; step < steps; step++) {
+      const dt = stepDt;
+      let tvx = 0, tvz = 0;
+      if (mx || mz) { const l = Math.hypot(mx, mz); const fx = -Math.sin(yaw), fz = -Math.cos(yaw); const rx = -fz, rz = fx; tvx = (fx * mz - rx * mx) / l * speed; tvz = (fz * mz - rz * mx) / l * speed; ME.ry = lerpAng(ME.ry, Math.atan2(tvx, tvz), 1 - Math.exp(-28 * dt)); }
+      const onGround = ME.vy <= 0 && ME.y <= groundAt(ME.x, ME.z, ME.y) + .02;
+      if (onGround && !busy) coyoteTime = .10;
+      const acc = (mx || mz) ? (onGround ? 32 : 24) : 48;
+      ME.vx = lerp(ME.vx || 0, tvx, 1 - Math.exp(-acc * dt)); ME.vz = lerp(ME.vz || 0, tvz, 1 - Math.exp(-acc * dt));
+      const vx = ME.vx, vz = ME.vz;
+      const nx = ME.x + vx * dt, nz = ME.z + vz * dt; const [cx, cz] = collide(ME.x, ME.z, nx, nz, .35, ME.y + .1);
+      ME.spd = Math.hypot(cx - ME.x, cz - ME.z) / Math.max(dt, 1e-3); if (cx !== nx) ME.vx *= .3; if (cz !== nz) ME.vz *= .3; ME.x = cx; ME.z = cz;
+      if (Math.abs(ME.x) > 60 || Math.abs(ME.z) > 60) { ME.x = clamp(ME.x, -60, 60); ME.z = clamp(ME.z, -60, 60); }
+      const g = groundAt(ME.x, ME.z, ME.y);
+      if (jumpBuffer > 0 && (coyoteTime > 0 || (ME.vy <= 0 && ME.y <= g + .02)) && !busy) {
+        ME.vy = 8.2; jumpBuffer = coyoteTime = 0; Snd.boing(); meCh.sq = .3;
+      }
+      const gravity = ME.vy > 0 ? 26 : 34;
+      ME.y += ME.vy * dt - .5 * gravity * dt * dt; ME.vy -= gravity * dt;
+      if (ME.y <= g) { if (ME.vy < -4) meCh.sq = -Math.min(.35, -ME.vy * .03); if (ME.vy < -14) { myRagdoll(0, 2, 0, 1.6); Snd.slap(); toast('Autsch.', 'info'); } ME.y = g; ME.vy = 0; }
+      else if (ME.y - g < .25 && ME.vy <= 0 && g > ME.y - .7) { ME.y = g; ME.vy = 0; }
+      jumpBuffer = Math.max(0, jumpBuffer - dt);
+      coyoteTime = Math.max(0, coyoteTime - dt);
+    }
   }
   if (ME.y < -5) { ME.x = -20; ME.z = 0; ME.y = 0; }
   // copy progress
@@ -505,10 +521,10 @@ function updateWaypoint(t) {
 const ray = new THREE.Raycaster(); const camTarget = new THREE.Vector3(); let camD = 4.6;
 function updateCamera(dt) {
   const head = meCh.rg ? meCh.rg.p[1] : _v.set(ME.x, ME.y + 1.55, ME.z);
-  camTarget.lerp(head, 1 - Math.exp(-(meCh.rg ? 6 : 16) * dt)); if (camTarget.distanceTo(head) > 6) camTarget.copy(head);
+  camTarget.lerp(head, 1 - Math.exp(-(meCh.rg ? 6 : 26) * dt)); if (camTarget.distanceTo(head) > 6) camTarget.copy(head);
   const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
   let d = camDist; ray.set(camTarget, dir); ray.far = camDist + .3; const hit = ray.intersectObjects(camBlockers, false)[0]; if (hit) d = Math.max(.6, hit.distance - .3);
-  camD = d < camD ? d : lerp(camD, d, 1 - Math.exp(-4 * dt));
+  camD = d < camD ? d : lerp(camD, d, 1 - Math.exp(-8 * dt));
   camera.position.copy(camTarget).addScaledVector(dir, camD);
   const ceil = floorOf(ME.y + .2) * FH + 3.75; if (Math.abs(ME.x) < 24 && Math.abs(ME.z) < 12 && camera.position.y > ceil) camera.position.y = ceil;
   if (ME.energyT > 0) { camera.position.x += Math.sin(performance.now() / 40) * .03; }
