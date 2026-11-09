@@ -61,4 +61,4 @@ npm run dist:mac   # .dmg (nur auf macOS)
 npm run dist:win   # .exe (am besten auf Windows)
 ```
 
-Der Workflow `.github/workflows/desktop.yml` baut beide Apps auf GitHub Actions (macOS-14 und Windows) und hängt sie an das Release, sobald der Release-Workflow es angelegt hat. Bei Pull Requests werden sie nur gebaut und liegen unter „Artifacts“ zum Testen bereit.
+Der Workflow `.github/workflows/desktop.yml` baut beide Apps auf GitHub Actions (macOS mit Apple Silicon und Windows) und hängt sie an das Release, sobald der Release-Workflow es angelegt hat. Bei Pull Requests werden sie nur gebaut und liegen unter „Artifacts“ zum Testen bereit.

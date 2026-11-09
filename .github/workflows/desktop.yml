@@ -35,7 +35,7 @@ jobs:
       matrix:
         include:
           - name: macOS (Apple Silicon)
-            os: macos-14
+            os: macos-latest
             target: --mac dmg --arm64
             pattern: '*.dmg'
           - name: Windows (x64)
