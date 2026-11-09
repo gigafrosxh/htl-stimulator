@@ -1,0 +1,103 @@
+name: Desktop-Apps
+
+# Baut das Spiel als Desktop-App (Electron):
+#   - macOS Apple Silicon (arm64) als .dmg
+#   - Windows x64 als Installer (.exe)
+# und hängt beide Dateien an das passende GitHub-Release (Tag = "v" + Inhalt von VERSION).
+#
+# Auslöser:
+#   - nach dem Release-Workflow (legt das Release an) -> Apps bauen und anhängen
+#   - wenn ein Release von Hand veröffentlicht wird   -> Apps bauen und anhängen
+#   - Pull Requests                                   -> nur bauen (Download unter "Artifacts")
+#   - von Hand (workflow_dispatch)                    -> bauen, anhängen falls Release existiert
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  release:
+    types: [published]
+  pull_request:
+    paths: ['src/**', 'build.sh', 'desktop/**', '.github/workflows/desktop.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ github.event.workflow_run.head_sha || github.event.release.tag_name || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple Silicon)
+            os: macos-14
+            target: --mac dmg --arm64
+            pattern: '*.dmg'
+          - name: Windows (x64)
+            os: windows-latest
+            target: --win nsis --x64
+            pattern: '*.exe'
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.event.release.tag_name || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Version lesen
+        id: v
+        run: |
+          if [ -f VERSION ]; then VERSION="$(tr -d '[:space:]' < VERSION)"; else VERSION="$(node -p "require('./desktop/package.json').version")"; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Spiel bauen
+        run: |
+          ./build.sh
+          cd desktop
+          npm ci
+          node prepare.js
+
+      - name: App paketieren
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder ${{ matrix.target }} --publish never -c.extraMetadata.version=${{ steps.v.outputs.version }}
+
+      - name: Als Workflow-Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-${{ steps.v.outputs.tag }}
+          path: desktop/dist/${{ matrix.pattern }}
+          if-no-files-found: error
+
+      - name: An Release anhängen
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.release.tag_name || steps.v.outputs.tag }}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            EXT="${{ matrix.pattern }}"; EXT="${EXT#\*}"
+            if [ "${{ github.event_name }}" = workflow_run ] && gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -q -- "$EXT\$"; then
+              echo "Release $TAG hat schon eine $EXT-Datei – nichts zu tun (neue Version in VERSION eintragen)."
+              exit 0
+            fi
+            gh release upload "$TAG" desktop/dist/${{ matrix.pattern }} --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            echo "Kein Release $TAG gefunden – Dateien liegen nur als Workflow-Artefakt vor."
+          fi
