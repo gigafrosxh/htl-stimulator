@@ -72,7 +72,7 @@ function activity() {
   let a = 0;
   if (G.ph === 'lesson') {
     const L = curL();
-    if (inLessonRoom()) { a = MG.open && !MG.forced ? 1 : ME.copy ? (ME.copy.phone ? 1.5 : 1.2) : ME.pose === 'phone' ? 1.4 : sprint ? 1 : moving ? .55 : ME.seat ? 0 : .3; }
+    if (inLessonRoom()) { a = ME.cheatT > 0 ? 1.4 : MG.open && !MG.forced ? 1 : ME.copy ? (ME.copy.phone ? 1.5 : 1.2) : ME.pose === 'phone' ? 1.4 : sprint ? 1 : moving ? .55 : ME.seat ? 0 : .3; }
     else if (r.type === 'hall') a = sprint ? 1 : .6;
     if (L && L.ev === 'director' && a > 0) a *= 1.2;
   } else if (G.ph === 'break') { if (r.type === 'hall' && sprint) a = .45; }
@@ -94,7 +94,9 @@ function updateSus(dt) {
   if (ME.sus >= 100) caught(w);
 }
 function caught(w, heavy = false) {
-  ME.sus = 38; ME.warned = false; if (MG.open && !MG.forced) closeMG(true); ME.copy = null;
+  ME.sus = 38; ME.warned = false; ME.cheatT = 0;
+  if (MG.open && MG.opts && MG.opts.exam) { closeMG(true); toast('SCHULARBEIT ABGENOMMEN! Beim Schummeln erwischt!', 'bad', 4500); addPts(-80, 'Schularbeit: Nicht genügend (Schummeln)'); }
+  if (MG.open && !MG.forced) closeMG(true); ME.copy = null;
   const t = TV[w] || { x: ME.x - 1, z: ME.z }; const dx = ME.x - t.x, dz = ME.z - t.z, d = Math.hypot(dx, dz) || 1;
   myRagdoll(dx / d * 7, 7, dz / d * 7, 2.4); Snd.scream(1.1); flash('red', .45);
   act('caught', { w: Math.max(0, w) });
@@ -277,6 +279,7 @@ function hostEvent(e) {
     case 'trg': { const c = tchCh[e.w]; if (c) { startRagdoll(c, e.v[0], e.v[1], e.v[2], 3); Snd.boing(); Snd.whistleDown(); } break; }
     case 'check': onCheck(e.li); break;
     case 'test': onTest(e.li); break;
+    case 'sa': onSA(e.li); break;
     case 'tafel': if (e.p === Net.me) setTimeout(() => startTafel(), 1200); break;
     case 'alarm': onAlarm(e.p); break;
     case 'day': break;
@@ -309,6 +312,13 @@ function onTest(li) {
   if (!inLessonRoom()) { toast(myRoom().type === 'toilet' ? 'Du warst am Klo und hast den Test verpasst. Genial.' : 'Test verpasst. Wo bist du überhaupt?', myRoom().type === 'toilet' ? 'good' : 'bad'); return; }
   ME.seat = ME.seat; if (useItem('loesung')) { addPts(100, 'Test: Sehr gut (Testlösungen!)'); return; }
   startMG({ kind: 'quiz', title: 'TEST: ' + plan()[li].s, sub: 'Unangekündigt. Natürlich.', forced: true, test: true, diff: .4 + .25 * (G.day - 1), done: (q, fake) => { const pts = Math.round(90 * q) - (q < .45 ? 25 : 0); addPts(pts, `Test: ${GRADE(q)[1]}`); } });
+}
+function onSA(li) {
+  if (ME.day !== G.day) return; const L = plan()[li];
+  if (!inLessonRoom()) { if (useItem('ausrede')) { toast('Schularbeit verpasst – aber du hast eine Entschuldigung. Nachschreiben irgendwann. Nie.', 'good', 4500); return; } addPts(-60, 'Schularbeit verpasst: Nicht genügend'); return; }
+  if (useItem('loesung')) { addPts(200, `Schularbeit ${L.s}: Sehr gut (gestohlene Lösungen!)`); return; }
+  startMG({ kind: 'exam', title: `📝 SCHULARBEIT: ${L.s}`, sub: 'Schummeln erlaubt. Erwischt werden nicht.', forced: true, test: true, exam: true, diff: .5 + .25 * (G.day - 1),
+    done: (q, fake) => { const [g, gn] = GRADE(q); const pts = Math.round(200 * q) - (q < .45 ? 60 : 0); addPts(pts, `Schularbeit: ${g} (${gn})`); if (g === 1) Snd.fanfare(); } });
 }
 function onAlarm(p) {
   Snd.alarm(); flash('red', .5); let n = 0; const iv = setInterval(() => { flash('red', .3); if (++n > 6) clearInterval(iv); }, 500);
@@ -357,6 +367,13 @@ function updateNPC(dt, t) {
 }
 
 // ---------------- remote players / teachers rendering ----------------
+// dead reckoning: estimate velocity from successive network samples, extrapolate up to 0.2 s
+function predict(st, x, y, z, key) {
+  const now = performance.now();
+  if (st.pk !== key) { if (st.pt) { const d = Math.max(.03, (now - st.pt) / 1000); st.v = [(x - st.p[0]) / d, (y - st.p[1]) / d, (z - st.p[2]) / d]; if (Math.hypot(st.v[0], st.v[2]) > 12) st.v = [0, 0, 0]; } st.pk = key; st.pt = now; st.p = [x, y, z]; }
+  const e = Math.min(.2, (now - (st.pt || now)) / 1000); const v = st.v || [0, 0, 0];
+  return [x + v[0] * e, y + v[1] * e * .5, z + v[2] * e];
+}
 function updateRemote(dt, t) {
   const seen = new Set();
   others().forEach(p => {
@@ -365,8 +382,9 @@ function updateRemote(dt, t) {
     if (!r || r.col !== q.c || r.name !== q.n) { if (r) removeChar(r.ch); const ch = makeChar({ col: new THREE.Color(q.c || '#888').getHex(), name: q.n }); ch.x = q.x; ch.y = q.y; ch.z = q.z; r = { ch, col: q.c, name: q.n, rgc: q.rgc || 0 }; remote.set(p.peer, r); }
     const ch = r.ch; const k = 1 - Math.exp(-12 * dt);
     if ((q.rgc || 0) !== r.rgc) { r.rgc = q.rgc || 0; const v = q.rv || [0, 5, 0, 2]; startRagdoll(ch, v[0], v[1], v[2], v[3] || 2.4); }
-    const pd = Math.hypot(q.x - ch.x, q.z - ch.z); if (pd > 6) { ch.x = q.x; ch.z = q.z; ch.y = q.y; }
-    ch.x = lerp(ch.x, q.x, k); ch.y = lerp(ch.y, q.y, k); ch.z = lerp(ch.z, q.z, k); ch.ry = lerpAng(ch.ry, q.ry, k);
+    const pr = predict(r, q.x, q.y, q.z, q);
+    const pd = Math.hypot(pr[0] - ch.x, pr[2] - ch.z); if (pd > 6) { ch.x = q.x; ch.z = q.z; ch.y = q.y; }
+    ch.x = lerp(ch.x, pr[0], k); ch.y = lerp(ch.y, pr[1], k); ch.z = lerp(ch.z, pr[2], k); ch.ry = lerpAng(ch.ry, q.ry, k);
     ch.pose = q.po || 'idle'; ch.spd = q.sp || 0; ch.ph += dt * ch.spd * 2.4;
     setLabel(ch.tag, q.n + (q.tag ? ' 🐀PETZE' : ''));
     ch.g.visible = ch.shadow.visible = true;
@@ -390,7 +408,7 @@ function updateTeachers(dt, t) {
   (G.T || []).forEach((a, i) => {
     const v = TV[i], c = tchCh[i]; if (!c) return;
     if (!v.init || Math.hypot(a[0] - v.x, a[2] - v.z) > 5) { v.x = a[0]; v.y = a[1]; v.z = a[2]; v.ry = a[3]; v.init = true; }
-    const k = 1 - Math.exp(-10 * dt); v.x = lerp(v.x, a[0], k); v.y = lerp(v.y, a[1], k); v.z = lerp(v.z, a[2], k); v.ry = lerpAng(v.ry, a[3], k);
+    const pr = isHost() ? a : predict(v, a[0], a[1], a[2], a); const k = 1 - Math.exp(-12 * dt); v.x = lerp(v.x, pr[0], k); v.y = lerp(v.y, pr[1], k); v.z = lerp(v.z, pr[2], k); v.ry = lerpAng(v.ry, a[3], k);
     const moving = Math.hypot(a[0] - v.x, a[2] - v.z) > .05 || a[4] === 'w'; v.st = a[4]; v.rg = a[5];
     if (!c.rg) { c.x = v.x; c.y = v.y; c.z = v.z; c.ry = v.ry; }
     c.spd = moving ? PERS[TEACH[i].pers].spd * 1.3 : 0; c.ph += dt * c.spd * 2.2;
@@ -403,6 +421,7 @@ function updateTeachers(dt, t) {
 // ---------------- local movement & camera ----------------
 function updateMe(dt, t) {
   if (ME.energyT > 0) ME.energyT -= dt;
+  if (ME.cheatT > 0) ME.cheatT -= dt;
   if (ME.tagT > 0) ME.tagT -= dt;
   if (ME.poseT > 0) { ME.poseT -= dt; if (ME.poseT <= 0) ME.pose = 'idle'; }
   let mx = 0, mz = 0; const busy = MG.open || meCh.rg || G.ph === 'detention';
@@ -414,17 +433,20 @@ function updateMe(dt, t) {
   if (meCh.rg) {
     const pv = meCh.rg.p[2]; ME.x = pv.x; ME.z = pv.z; ME.y = Math.max(groundAt(pv.x, pv.z, pv.y + .5), 0); ME.spd = 0;
     if (meCh.rg.t > meCh.rg.dur - .05) { const g = groundAt(ME.x, ME.z, pv.y + .6); ME.y = g; }
-  } else if (ME.seat) { ME.x = ME.seat.x; ME.z = ME.seat.z; ME.y = ME.seat.y; ME.ry = ME.seat.ry; ME.spd = 0; }
+  } else if (ME.seat) { ME.vx = ME.vz = 0; ME.x = ME.seat.x; ME.z = ME.seat.z; ME.y = ME.seat.y; ME.ry = ME.seat.ry; ME.spd = 0; }
   else {
-    let vx = 0, vz = 0;
-    if (mx || mz) { const l = Math.hypot(mx, mz); const fx = -Math.sin(yaw), fz = -Math.cos(yaw); const rx = -fz, rz = fx; vx = (fx * mz - rx * mx) / l * speed; vz = (fz * mz - rz * mx) / l * speed; ME.ry = lerpAng(ME.ry, Math.atan2(vx, vz), Math.min(1, dt * 12)); }
+    let tvx = 0, tvz = 0;
+    if (mx || mz) { const l = Math.hypot(mx, mz); const fx = -Math.sin(yaw), fz = -Math.cos(yaw); const rx = -fz, rz = fx; tvx = (fx * mz - rx * mx) / l * speed; tvz = (fz * mz - rz * mx) / l * speed; ME.ry = lerpAng(ME.ry, Math.atan2(tvx, tvz), 1 - Math.exp(-14 * dt)); }
+    const onGround = ME.y <= groundAt(ME.x, ME.z, ME.y) + .02; const acc = (mx || mz) ? (onGround ? 14 : 5) : (onGround ? 18 : 2);
+    ME.vx = lerp(ME.vx || 0, tvx, 1 - Math.exp(-acc * dt)); ME.vz = lerp(ME.vz || 0, tvz, 1 - Math.exp(-acc * dt));
+    const vx = ME.vx, vz = ME.vz;
     const nx = ME.x + vx * dt, nz = ME.z + vz * dt; const [cx, cz] = collide(ME.x, ME.z, nx, nz, .35, ME.y + .1);
-    ME.spd = Math.hypot(cx - ME.x, cz - ME.z) / Math.max(dt, 1e-3); ME.x = cx; ME.z = cz;
+    ME.spd = Math.hypot(cx - ME.x, cz - ME.z) / Math.max(dt, 1e-3); if (cx !== nx) ME.vx *= .3; if (cz !== nz) ME.vz *= .3; ME.x = cx; ME.z = cz;
     if (Math.abs(ME.x) > 60 || Math.abs(ME.z) > 60) { ME.x = clamp(ME.x, -60, 60); ME.z = clamp(ME.z, -60, 60); }
     const g = groundAt(ME.x, ME.z, ME.y);
-    if (keys.has('Space') && ME.y <= g + .02 && !busy) { ME.vy = 6.5; Snd.boing(); }
+    if (keys.has('Space') && ME.y <= g + .02 && !busy) { ME.vy = 6.5; Snd.boing(); meCh.sq = .3; }
     ME.vy -= 20 * dt; ME.y += ME.vy * dt;
-    if (ME.y <= g) { if (ME.vy < -11) { myRagdoll(0, 2, 0, 1.6); Snd.slap(); toast('Autsch.', 'info'); } ME.y = g; ME.vy = 0; }
+    if (ME.y <= g) { if (ME.vy < -4) meCh.sq = -Math.min(.35, -ME.vy * .03); if (ME.vy < -11) { myRagdoll(0, 2, 0, 1.6); Snd.slap(); toast('Autsch.', 'info'); } ME.y = g; ME.vy = 0; }
     else if (ME.y - g < .25 && ME.vy <= 0 && g > ME.y - .7) { ME.y = g; ME.vy = 0; }
   }
   if (ME.y < -5) { ME.x = -20; ME.z = 0; ME.y = 0; }
@@ -451,13 +473,43 @@ function updateMe(dt, t) {
     } else if (inLessonRoom()) { ME.awayT = Math.max(0, ME.awayT - dt * 2); if (ME.awayT < 20) ME.awayWarn = 0; }
   }
 }
-const ray = new THREE.Raycaster(); const camTarget = new THREE.Vector3();
+// ---------- playability helpers: teacher vision cones + waypoint to the classroom ----------
+const cones = [];
+function updateCones(t) {
+  TEACH.forEach((T_, i) => {
+    let c = cones[i];
+    if (!c) { const P = PERS[T_.pers]; const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.CircleGeometry(1, 24, -Math.PI / 2 - P.fov / 2, P.fov), new THREE.MeshBasicMaterial({ color: 0xff3b2f, transparent: true, opacity: .2, depthWrite: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; g.add(m); scene.add(g); c = cones[i] = { g, m }; }
+    const v = TV[i], ch = tchCh[i]; const P = PERS[T_.pers];
+    const show = v.init && !v.rg && 'fsxpwc'.includes(v.st) && Math.abs(v.y - ME.y) < 1.8 && roomAt(v.x, v.z, v.y).name === myRoom().name && G.ph !== 'detention';
+    c.g.visible = show; if (!show) return;
+    const view = P.view * (1 + .07 * (G.day - 1)); c.g.position.set(ch.J[2].x, v.y + .04, ch.J[2].z); c.g.rotation.y = v.ry; c.m.scale.set(view, view, 1);
+    const [s_] = bestWatcher(); c.m.material.opacity = (s_ > 0 && activity() > 0 ? .32 : .16) + Math.sin(t * 6) * .03;
+    c.m.material.color.setHex(v.st === 'c' ? 0xffa53b : 0xff3b2f);
+  });
+}
+const wpArrow = (() => { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.ConeGeometry(.45, .9, 4), new THREE.MeshBasicMaterial({ color: 0xffd23f })); c.rotation.x = Math.PI; g.add(c); const r = new THREE.Mesh(new THREE.TorusGeometry(.6, .07, 6, 20), new THREE.MeshBasicMaterial({ color: 0xffd23f })); r.rotation.x = Math.PI / 2; r.position.y = -1.6; g.add(r); g.visible = false; scene.add(g); return g; })();
+let WP = null;
+function updateWaypoint(t) {
+  WP = null;
+  const L = curL(); if (!L || !['break', 'lesson'].includes(G.ph) || G.ph === 'detention') { wpArrow.visible = false; return; }
+  const ri = lessonRoomIdx(L, gEl(performance.now())); const R = ROOMS[ri]; if (!R || inLessonRoom()) { wpArrow.visible = false; return; }
+  const myF = floorOf(ME.y + .2); let tgt, label = `${R.name} (${R.f ? 'OG' : 'EG'})`;
+  if (myF !== R.f) {
+    const inStairs = ME.x > 12 && ME.z < -2.5;
+    if (!inStairs) tgt = { x: 18, y: myF * FH, z: -2.2 }; else tgt = myF === 0 ? { x: 13.4, y: 0, z: -9.5 } : { x: 21.5, y: FH, z: -9.5 };
+    label = `Stiege → ${label}`;
+  } else tgt = { x: R.doorX, y: R.y, z: R.side * 3.6 };
+  WP = { ...tgt, label, d: Math.hypot(tgt.x - ME.x, tgt.z - ME.z) };
+  wpArrow.visible = true; wpArrow.position.set(tgt.x, tgt.y + 2.6 + Math.sin(t * 4) * .2, tgt.z); wpArrow.rotation.y = t * 2;
+}
+const ray = new THREE.Raycaster(); const camTarget = new THREE.Vector3(); let camD = 4.6;
 function updateCamera(dt) {
   const head = meCh.rg ? meCh.rg.p[1] : _v.set(ME.x, ME.y + 1.55, ME.z);
-  camTarget.lerp(head, meCh.rg ? .15 : .35); if (camTarget.distanceTo(head) > 6) camTarget.copy(head);
+  camTarget.lerp(head, 1 - Math.exp(-(meCh.rg ? 6 : 16) * dt)); if (camTarget.distanceTo(head) > 6) camTarget.copy(head);
   const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
   let d = camDist; ray.set(camTarget, dir); ray.far = camDist + .3; const hit = ray.intersectObjects(camBlockers, false)[0]; if (hit) d = Math.max(.6, hit.distance - .3);
-  camera.position.copy(camTarget).addScaledVector(dir, d);
+  camD = d < camD ? d : lerp(camD, d, 1 - Math.exp(-4 * dt));
+  camera.position.copy(camTarget).addScaledVector(dir, camD);
   const ceil = floorOf(ME.y + .2) * FH + 3.75; if (Math.abs(ME.x) < 24 && Math.abs(ME.z) < 12 && camera.position.y > ceil) camera.position.y = ceil;
   if (ME.energyT > 0) { camera.position.x += Math.sin(performance.now() / 40) * .03; }
   camera.lookAt(camTarget);

@@ -48,7 +48,32 @@ const ORDER_SETS = [
   ['Raupe', 'Mehr Raupe', 'Kokon', 'Schmetterling', 'Schmetterling mit Sonnenbrille'],
 ];
 const SHAPES = { Stern: (() => { const p = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? .45 : 1; p.push([Math.cos(a) * r, Math.sin(a) * r]); } return p; })(), Haus: [[-1, 1], [-1, -.1], [0, -1], [1, -.1], [1, 1]], Fisch: [[-1, 0], [-.3, -.6], [.5, -.3], [1, -.7], [1, .7], [.5, .3], [-.3, .6]], Blitz: [[-.2, -1], [.5, -1], [.1, -.15], [.6, -.15], [-.4, 1], [-.05, .1], [-.5, .1]] };
+function cheat(kind) {
+  ME.cheatT = kind === 'phone' ? 3 : kind === 'look' ? 2 : 1;
+  const extra = { phone: 26, look: 16, spick: 7 }[kind]; spikeIfSeen(extra);
+  if (kind === 'phone') { setPose('phone', 2); Snd.click(); } else if (kind === 'look') { Snd.huh(); } else Snd.paper();
+}
 const GAMES = {
+  exam(el, o) {
+    const N = 8; const pool = [...QUIZ].sort(() => Math.random() - .5); const qs = [];
+    for (let k = 0; k < N; k++) { if (k % 3 === 2) { const a = rint(3, 9 + Math.round(o.diff * 3)), b = rint(3, 12); const w = [a * b + rint(1, 4), a * b - rint(1, 5), a + b]; qs.push([`${a} · ${b} = ?`, [String(a * b), ...w.map(String)]]); } else qs.push(pool.pop()); }
+    let i = 0, score = 0, tTot = 1, tLeft = 1, revealed = false;
+    el.insertAdjacentHTML('beforeend', '<div class="mgq" style="font-size:21px"></div><div class="opts"></div><div class="cheats" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:14px"><b>Schummeln:</b></div><div class="mgInfo" style="font-size:14px;min-height:18px"></div>');
+    const q = el.querySelector('.mgq'), opts = el.querySelector('.opts'), cbox = el.querySelector('.cheats'), info = el.querySelector('.mgInfo'); const bar = timerBar(el);
+    const mkBtn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'sec'; b.style.fontSize = '14px'; b.style.padding = '3px 8px'; b.textContent = label; b.onclick = fn; cbox.appendChild(b); return b; };
+    const reveal = (sure, src) => { if (revealed) return; revealed = true; const right = [...opts.children].find(b => b.dataset.k === '0'); const wrong = [...opts.children].filter(b => b.dataset.k !== '0'); const shown = sure || Math.random() < .65 ? right : pick(wrong); shown.style.outline = '4px solid var(--green)'; info.textContent = src; };
+    mkBtn('👀 Beim Nachbarn abschauen', () => { cheat('look'); reveal(false, 'Dein Nachbar hat das angekreuzt... hoffentlich weiß er es.'); });
+    mkBtn('📱 Handy unterm Tisch', () => { cheat('phone'); reveal(true, 'Google sagt: das Grüne.'); });
+    const spickBtn = mkBtn('📜 Spickzettel', () => { const it = ['spick', 'rechner'].find(k => ME.items.includes(k)); if (!it) { info.textContent = 'Du hast keinen Spickzettel. Bibliothek!'; return; } useItem(it); cheat('spick'); reveal(true, `${ITEMS[it].name} benutzt.`); });
+    function next() {
+      if (i >= N) return o.finish(score / N); const [txt, ans] = qs[i++]; q.textContent = `${i}/${N}: ${txt}`; revealed = false; info.textContent = '';
+      tTot = Math.max(5, (11 - o.diff * 1.5) * o.timeMul); tLeft = tTot; opts.innerHTML = '';
+      spickBtn.disabled = !['spick', 'rechner'].some(k => ME.items.includes(k));
+      [...ans].map((a, k) => [a, k]).sort(() => Math.random() - .5).forEach(([a, k]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.k = k; b.textContent = a; b.onclick = () => { if (k === 0) { score += .7 + .3 * tLeft / tTot; Snd.coin(); } else Snd.buzz(); next(); }; opts.appendChild(b); });
+    }
+    const iv = setInterval(() => { tLeft -= .05; bar.style.width = (100 * tLeft / tTot) + '%'; if (tLeft <= 0) { Snd.buzz(); next(); } }, 50);
+    next(); return () => clearInterval(iv);
+  },
   math(el, o) {
     const N = 5; let i = 0, score = 0, ans = 0, tTot = 1, tLeft = 1;
     el.insertAdjacentHTML('beforeend', '<div class="mgq"></div><input type="text" id="mgIn" inputmode="numeric" autocomplete="off" aria-label="Antwort"><div class="mgInfo" style="text-align:center;font-size:15px"></div>');
@@ -145,7 +170,7 @@ function hudTick(now) {
     const need = needHW(i); const q = ME.hw[i];
     let hw = !need ? '<span class="sub">keine HÜ</span>' : l.group && bestOf(i)[0] >= 0 ? `<span class="hwok">👥 ✔ ${Math.round(bestOf(i)[0] * 100)}%</span>` : q >= 0 ? `<span class="hwok">✔ ${Math.round(q * 100)}%${ME.hf[i] ? ' 🤥' : ''}</span>` : '<span class="hwno">✘ HÜ fehlt</span>';
     if (ME.checked[i] && ME.nach !== i) hw = '<span class="sub">kontrolliert</span>'; if (ME.nach === i) hw = '<span class="hwno">⏰ nachreichen!</span>';
-    const flags = (l.group ? ' 👥' : '') + (ME.knowTests && l.test ? ' 📝TEST' : '');
+    const flags = (l.group ? ' 👥' : '') + (l.sa ? ' <b style="color:var(--red)">📝SCHULARBEIT</b>' : '') + (ME.knowTests && l.test ? ' 📝TEST' : '');
     const cls = (i === G.li && ['lesson', 'break'].includes(G.ph) ? 'cur' : '') + (i < G.li ? ' past' : '');
     return `<div class="lrow ${cls}" data-li="${i}"><span class="n">${i + 1}.</span><span>${SUBJ[l.s].icon} ${esc(l.s)}${flags}<br><span class="sub">${moved ? `<s>${esc(ROOMS[l.room].name)}</s> → ` : ''}${esc(rn.name)} (${rn.f ? 'OG' : 'EG'}) · ${esc(tch.name)}</span></span><span class="hw">${hw}</span></div>`;
   }).join('');
@@ -179,6 +204,8 @@ function hudTick(now) {
     else if (G.ph === 'lesson' && !inLessonRoom() && cur && cur.teacher >= 0) p = `Du solltest in ${ROOMS[lessonRoomIdx(cur, el)].name} sein!`;
   }
   $('#prompt').textContent = p;
+  const wp = $('#wp'); if (WP && !MG.open) { const fa = Math.atan2(-Math.sin(yaw), -Math.cos(yaw)); const rel = angDiff(fa, Math.atan2(WP.x - ME.x, WP.z - ME.z)); wp.hidden = false; $('#wpArrow').style.transform = `rotate(${-rel}rad)`; $('#wpText').textContent = `${WP.label} · ${Math.round(WP.d)} m`; } else wp.hidden = true;
+  $('#lockHint').hidden = !(document.pointerLockElement !== canvas && !MG.open && G.ph !== 'detention');
   $('#netState').textContent = Net.solo ? 'Solo · offline' : `${Net.connected ? 'Online' : 'Verbinde...'} · ${G.np} Spieler · Klasse ${CODE}${isHost() ? ' · Host' : ''}`;
 }
 $('#planRows').addEventListener('click', e => { const r = e.target.closest('.lrow'); if (r && !MG.open) openHW(+r.dataset.li); });
@@ -195,7 +222,7 @@ function phaseCheck(dt) {
     Object.assign(ME, { pts: 0, hw: [-1, -1, -1, -1], hf: [0, 0, 0, 0], checked: {}, nach: -1, pendLate: -1, knowTests: false, sus: 0, day: G.day, run: G.run, awayT: 0, awayWarn: 0 });
     if (G.ph === 'break' && G.li === 0) { ME.x = rnd(-22, -18); ME.z = rnd(-1.5, 1.5); ME.y = 0; ME.seat = null; yaw = -Math.PI / 2; ME.ry = Math.PI / 2; }
     if (newRun && G.day === 1) ME.items = [];
-    showBig(`<h2>Tag ${G.day}: ${DAYNAMES[(G.day - 1) % 7]}</h2><p>Klassenziel: <b>${G.goal}</b> Punkte.<br>Hausübungen hat natürlich niemand gemacht.</p><p style="font-size:15px">Erste Stunde: ${plan()[0].s} in ${ROOMS[plan()[0].room].name}</p>`, 5);
+    showBig(`<h2>Tag ${G.day}: ${DAYNAMES[(G.day - 1) % 7]}</h2><p>Klassenziel: <b>${G.goal}</b> Punkte.<br>Hausübungen hat natürlich niemand gemacht.</p><p style="font-size:15px">Erste Stunde: ${plan()[0].s} in ${ROOMS[plan()[0].room].name}</p>${plan().some(l => l.sa) ? `<p style="color:var(--red);font-size:18px">⚠️ Heute: SCHULARBEIT in ${plan().find(l => l.sa).s} (3. Stunde)! Spickzettel besorgen!</p>` : G.saEvery ? `<p style="font-size:14px">Nächste Schularbeit: Tag ${Math.ceil(G.day / G.saEvery) * G.saEvery === G.day ? G.day + G.saEvery : Math.ceil(G.day / G.saEvery) * G.saEvery}</p>` : ''}`, 6);
     Snd.fanfare();
   }
   if (G.ph !== prevPh || G.li !== prevLi) {
@@ -276,7 +303,7 @@ const genCode = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ2
     $('#lobbyNote').textContent = online ? `Klasse ${CODE}: Freunde öffnen dieselbe Seite und geben den gleichen Code ein. Jeder kann starten.` : 'Mehrspieler ist hier nicht verfügbar – du spielst solo. (Auf claude.ai geteilt funktioniert der Klassen-Code.)';
     started = true;
   };
-  $('#startBtn').onclick = () => { act('start', { dur: +$('#lenSel').value }); $('#startBtn').textContent = 'Startet...'; };
+  $('#startBtn').onclick = () => { act('start', { dur: +$('#lenSel').value, sa: +$('#saSel').value }); $('#startBtn').textContent = 'Startet...'; };
 })();
 function lobbyTick() {
   const list = allPlayers().filter(p => p.presence.n).map(p => `<span class="pchip"><i style="background:${esc(p.isMe ? ME.color : p.presence.c)}"></i>${esc(p.isMe ? ME.name + ' (du)' : p.presence.n)}</span>`).join('');
@@ -307,6 +334,7 @@ function frame(now) {
     if (inGame && G.ph === 'detention') updateCut(dt, t);
     else if (inGame) { updateMe(dt, t); updateSus(dt); checkBananas(); updateCamera(dt); }
     else renderChar(meCh, t, dt);
+    if (inGame && G.ph !== 'detention') { updateCones(t); updateWaypoint(t); } else { wpArrow.visible = false; cones.forEach(c => c && (c.g.visible = false)); }
     meCh.g.visible = meCh.shadow.visible = G.ph !== 'detention';
     updateRemote(dt, t); updateTeachers(dt, t); updateWanderers(dt, t); updateNPC(dt, t); updateProjs(dt);
     sendPresence(now);
