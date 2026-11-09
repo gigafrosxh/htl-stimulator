@@ -1,0 +1,70 @@
+{
+  "name": "school-with-your-friends",
+  "productName": "School With Your Friends",
+  "version": "0.2.0",
+  "description": "Chaotisches Low-Poly-Koop-Schulspiel",
+  "author": "gigafrosxh",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gigafrosxh/htl-stimulator.git"
+  },
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "prepare-game": "bash ../build.sh && node prepare.js",
+    "start": "npm run prepare-game && electron .",
+    "dist:mac": "npm run prepare-game && electron-builder --mac dmg --arm64 --publish never",
+    "dist:win": "npm run prepare-game && electron-builder --win nsis --x64 --publish never"
+  },
+  "devDependencies": {
+    "@fontsource/luckiest-guy": "^5.1.0",
+    "@fontsource/patrick-hand": "^5.1.0",
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8",
+    "three": "0.128.0"
+  },
+  "build": {
+    "appId": "at.gigafrosxh.schoolwithyourfriends",
+    "productName": "School With Your Friends",
+    "artifactName": "School-With-Your-Friends-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "app/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "identity": null
+    },
+    "dmg": {
+      "title": "School With Your Friends"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "School With Your Friends"
+    }
+  }
+}
