@@ -264,7 +264,7 @@ function startCut() {
   cut.room.g.visible = true; cut.t = 0; cut.chars = [];
   const ps = allPlayers().filter(p => p.presence.n);
   ps.forEach((p, k) => { const c = makeChar({ col: new THREE.Color(p.isMe ? ME.color : p.presence.c).getHex(), name: p.isMe ? ME.name : p.presence.n }); Object.assign(c, { x: CX - 4 + (k % 3) * 4, y: 0, z: -1 + Math.floor(k / 3) * 3, ry: Math.PI, pose: 'sit' }); cut.chars.push(c); });
-  const d = makeChar({ col: TEACH[DIR].col, hair: TEACH[DIR].hair, teacher: true, sz: 1.18, name: TEACH[DIR].name }); Object.assign(d, { x: CX, y: 0, z: -4.3, ry: 0, pose: 'nap' }); cut.chars.push(d); cut.dir = d;
+  const d = makeChar({ col: TEACH[DIR].col, hair: TEACH[DIR].hair, teacher: true, must: TEACH[DIR].must, sz: 1.18, name: TEACH[DIR].name }); Object.assign(d, { x: CX, y: 0, z: -4.3, ry: 0, pose: 'nap' }); cut.chars.push(d); cut.dir = d;
   $('#cut').classList.remove('hidden'); $('#hud').classList.add('hidden'); Snd.trombone();
 }
 function updateCut(dt, t) {

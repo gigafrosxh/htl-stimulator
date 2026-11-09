@@ -7,7 +7,7 @@ const meName = () => ME.name;
 
 function initChars() {
   meCh = makeChar({ col: new THREE.Color(ME.color).getHex(), name: ME.name });
-  TEACH.forEach((t, i) => { const c = makeChar({ col: t.col, hair: t.hair, pants: 0x333333, sz: 1.18, teacher: true, name: t.name, skin: i === SUP ? 0xe0b890 : 0xf2c79b }); c.x = 0; c.y = -50; tchCh.push(c); });
+  TEACH.forEach((t, i) => { const c = makeChar({ col: t.col, hair: t.hair, pants: 0x333333, sz: 1.18, teacher: true, must: t.must, name: t.name, skin: i === SUP ? 0xe0b890 : 0xf2c79b }); c.x = 0; c.y = -50; tchCh.push(c); });
   WAND.forEach(w => { const c = makeChar({ col: w.col, hair: w.hair, name: w.n, hat: w.hat ?? -1, sz: w.sz || 1, teacher: !!w.teacher, pants: w.role === 'janitor' ? 0x3b4a6b : 0x2b3a67 }); c.y = -50; wanCh.push(c); });
   for (let i = 0; i < 6; i++) { const c = makeChar({ col: [0x5d8aa8, 0xc0392b, 0x27ae60, 0xf39c12, 0x8e44ad, 0x16a085][i], hair: [0x2b1a0e, 0xf5d76e, 0x111111, 0x8b4513, 0xd35400, 0x555555][i], name: ['Jonas', 'Lea', 'Mehmet', 'Sophie', 'Lukas', 'Mia'][i] }); c.y = -50; c.pose = 'sit'; npcCh.push(c); }
 }
