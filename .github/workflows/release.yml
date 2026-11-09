@@ -1,0 +1,65 @@
+name: Release
+
+# Legt bei jedem Push auf main ein GitHub-Release an, sobald in VERSION eine
+# neue Versionsnummer steht. Versionen unter 1.0.0 oder mit Suffix
+# (z. B. 0.3.0-beta) werden als Vorabversion (Prerelease) markiert.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version lesen
+        id: v
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "Ungültige Version in VERSION: '$VERSION'"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* || "$VERSION" == 0.* ]]; then
+            echo "pre=--prerelease" >> "$GITHUB_OUTPUT"
+          else
+            echo "pre=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prüfen, ob es das Release schon gibt
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.v.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.v.outputs.tag }} existiert bereits – nichts zu tun."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Spiel bauen
+        if: steps.exists.outputs.skip == 'false'
+        run: |
+          ./build.sh
+          cp index.html "school-with-your-friends-${{ steps.v.outputs.tag }}.html"
+
+      - name: Release anlegen
+        if: steps.exists.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="release-notes/${{ steps.v.outputs.tag }}.md"
+          if [ -f "$NOTES" ]; then NOTE_ARGS=(--notes-file "$NOTES"); else NOTE_ARGS=(--generate-notes); fi
+          gh release create "${{ steps.v.outputs.tag }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.v.outputs.tag }}" \
+            ${{ steps.v.outputs.pre }} \
+            "${NOTE_ARGS[@]}" \
+            "school-with-your-friends-${{ steps.v.outputs.tag }}.html"
