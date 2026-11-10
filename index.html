@@ -444,7 +444,8 @@ function TM(col, tex, key) { const k = col + ':' + key; return texMatCache[k] ||
 const checker = (a, b) => (g, w, h) => { g.fillStyle = a; g.fillRect(0, 0, w, h); g.fillStyle = b; g.fillRect(0, 0, w / 2, h / 2); g.fillRect(w / 2, h / 2, w / 2, h / 2); };
 
 // --- layout ---
-const FH = 4, WH = 3.7; // floor height, wall height
+const FH = 5, WH = 4.6; // Geschoss- und Wandhöhe: höhere, luftigere Räume
+const CHAR_SCALE = .8; // Figuren kleiner als Möbel/Räume, damit alles proportional wirkt
 const COLS = [-24, -12, 0, 12, 24];
 const LAYOUT = [
   [0, 1, 0, '1A', 'class'], [0, 1, 1, '1B', 'class'], [0, 1, 2, 'Chemiesaal', 'class'], [0, 1, 3, '1C', 'class'],
@@ -511,7 +512,7 @@ function wallWithDoors(axis, c, a0, a1, f, doors, col, dw = 1.0) {
   // axis 'x': wall along x at z=c from a0..a1; doors are positions along axis
   const segs = []; let s = a0; [...doors].sort((a, b) => a - b).forEach(d => { segs.push([s, d - dw]); s = d + dw; }); segs.push([s, a1]);
   segs.forEach(([p, q]) => { if (axis === 'x') wall(p, q, c - T, c + T, f, col); else wall(c - T, c + T, p, q, f, col); });
-  doors.forEach(d => { if (axis === 'x') box(d, f * FH + WH - .35, c, dw * 2, .7, T * 2, woodMat(col)); else box(c, f * FH + WH - .35, d, T * 2, .7, dw * 2, woodMat(col)); });
+  const DH = 2.9, lh = WH - DH; doors.forEach(d => { if (axis === 'x') box(d, f * FH + DH + lh / 2, c, dw * 2, lh, T * 2, woodMat(col)); else box(c, f * FH + DH + lh / 2, d, T * 2, lh, dw * 2, woodMat(col)); });
 }
 
 // Texture repeat belongs to the cached usage, never mutated per mesh.
@@ -645,17 +646,17 @@ function buildWorld() {
   const grass = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), texGrass); grass.rotation.x = -Math.PI / 2; grass.position.y = -0.02; scene.add(grass);
   for (let i = 0; i < 26; i++) { const a = rnd(Math.PI * 2), r = rnd(34, 70); const x = Math.cos(a) * r, z = Math.sin(a) * r; box(x, 1.2, z, .5, 2.4, .5, 0x7a5230); const s = rnd(2, 3.5); const t = box(x, 2.6 + s / 2, z, s, s, s, 0x3f9b3a); t.geometry = SPH; t.rotation.y = rnd(3); }
   box(-31, 0.01, 0, 14, .02, 5, 0xb0a890); // path
-  sign('SCHULE', -24.39, 6.2, 0, -Math.PI / 2, 5, '#e8412c');
+  sign('SCHULE', -24.39, FH + 2.4, 0, -Math.PI / 2, 5, '#e8412c');
   // Dachkante statt Dachplatte: OG bleibt von oben lesbar.
   [FH - .08, FH + WH + .08].forEach(y => {
     [-12.2, 12.2].forEach(z => db(0, y, z, 48.6, .24, .38, 0xb56c4e));
     [-24.2, 24.2].forEach(x => db(x, y, 0, .38, .24, 24.4, 0xb56c4e));
   });
-  [-23.85, -12, 0, 12, 23.85].forEach(x => [-12.19, 12.19].forEach(z => db(x, 3.85, z, .35, 7.7, .18, 0xffe7bb)));
+  [-23.85, -12, 0, 12, 23.85].forEach(x => [-12.19, 12.19].forEach(z => db(x, (FH + WH) / 2, z, .35, FH + WH, .18, 0xffe7bb)));
   db(-24.35, 3.1, 0, .55, .35, 3.3, 0xb56c4e); // Eingang, lichte Breite bleibt frei
   [-1.48, 1.48].forEach(z => db(-24.22, 1.5, z, .32, 3, .22, 0xffe7bb));
-  db(-24.28, 6.2, 0, .16, 1.45, 5.4, 0xffe7bb);
-  sign('Kein Boom!', -24.38, 4.95, 0, -Math.PI / 2, 3.2, '#416957');
+  db(-24.28, FH + 2.4, 0, .16, 1.45, 5.4, 0xffe7bb);
+  sign('Kein Boom!', -24.38, FH + .9, 0, -Math.PI / 2, 3.2, '#416957');
   const leafGeo = new THREE.SphereGeometry(1, 16, 10);
   [-1, 1].forEach(side => {
     const z = side * 7;
@@ -871,7 +872,7 @@ function makeChar(opts) {
   body.flatShading = false;
   const faceM = new THREE.MeshLambertMaterial({ map: faceTex(o.skin, h % 53), flatShading: false });
   const mk = (geo, w, d, mat) => { const m = new THREE.Mesh(geo, mat); m.userData.w = w; m.userData.d = d; g.add(m); return m; };
-  const s = o.sz;
+  const s = o.sz * CHAR_SCALE;
   // big round potato head
   const head = new THREE.Mesh(potato(h), faceM); head.scale.set((o.teacher ? 1.05 : 1.02) * s, .98 * s, .94 * s); g.add(head);
   const eyes = []; const big = r() < .5 ? 0 : 1;
@@ -964,7 +965,7 @@ const LP = Array.from({ length: 11 }, () => new THREE.Vector3());
 function poseLocal(ch, t) {
   const s = ch.sz, p = ch.pose, sp = ch.spd; const a = Math.sin(ch.ph) * Math.min(1, sp / 4) * .8;
   const sit = p === 'sit', bob = sit ? 0 : Math.abs(Math.sin(ch.ph)) * .06 * Math.min(1, sp / 3);
-  const hipY = (sit ? .5 : .6 + bob * 2) * s;
+  const hipY = sit ? Math.max(.5 * s, .5) : (.6 + bob * 2) * s;
   LP[2].set(0, hipY, 0); LP[1].set(Math.sin(ch.ph) * .06 * Math.min(1, sp / 3), hipY + .78 * s, sp > 5 ? .15 : 0); LP[0].set(LP[1].x, LP[1].y + .5 * s, LP[1].z + (p === 'write' ? .12 : 0));
   LP[7].set(.5 * s, LP[1].y - .28 * s, LP[1].z); LP[8].set(-.5 * s, LP[1].y - .28 * s, LP[1].z);
   LP[9].set(.22 * s, hipY, 0); LP[10].set(-.22 * s, hipY, 0);
