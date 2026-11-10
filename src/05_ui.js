@@ -220,7 +220,7 @@ function phaseCheck(dt) {
   if (['break', 'lesson'].includes(G.ph) && dk !== prevDayKey) {
     prevDayKey = dk; const newRun = ME.run !== G.run;
     Object.assign(ME, { pts: 0, hw: [-1, -1, -1, -1], hf: [0, 0, 0, 0], checked: {}, nach: -1, pendLate: -1, knowTests: false, sus: 0, day: G.day, run: G.run, awayT: 0, awayWarn: 0 });
-    if (G.ph === 'break' && G.li === 0) { ME.x = rnd(-22, -18); ME.z = rnd(-1.5, 1.5); ME.y = 0; ME.seat = null; yaw = -Math.PI / 2; ME.ry = Math.PI / 2; }
+    if (G.ph === 'break' && G.li === 0) { ME.x = rnd(-22, -18); ME.z = rnd(-1.5, 1.5); ME.y = 0; ME.seat = null; yaw = -Math.PI / 2; pitch = 0; ME.ry = Math.PI / 2; }
     if (newRun && G.day === 1) ME.items = [];
     showBig(`<h2>Tag ${G.day}: ${DAYNAMES[(G.day - 1) % 7]}</h2><p>Klassenziel: <b>${G.goal}</b> Punkte.<br>Hausübungen hat natürlich niemand gemacht.</p><p style="font-size:15px">Erste Stunde: ${plan()[0].s} in ${ROOMS[plan()[0].room].name}</p>${plan().some(l => l.sa) ? `<p style="color:var(--red);font-size:18px">⚠️ Heute: SCHULARBEIT in ${plan().find(l => l.sa).s} (3. Stunde)! Spickzettel besorgen!</p>` : G.saEvery ? `<p style="font-size:14px">Nächste Schularbeit: Tag ${Math.ceil(G.day / G.saEvery) * G.saEvery === G.day ? G.day + G.saEvery : Math.ceil(G.day / G.saEvery) * G.saEvery}</p>` : ''}`, 6);
     Snd.fanfare();
@@ -253,7 +253,7 @@ let cut = null; const CX = 140;
 function buildDetention() {
   const g = new THREE.Group(); scene.add(g);
   box(CX, -.1, 0, 14, .2, 12, 0x3a3340, g); box(CX, 2, -6, 14, 4, .2, 0x4a4458, g); box(CX - 7, 2, 0, .2, 4, 12, 0x4a4458, g); box(CX + 7, 2, 0, .2, 4, 12, 0x4a4458, g);
-  const b = box(CX, 2.2, -5.85, 6, 1.6, .05, texMat(256, 64, (c, w, h) => { c.fillStyle = '#24493a'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4f1e6'; c.font = '34px "Luckiest Guy",Impact'; c.textAlign = 'center'; c.fillText('NACHSITZEN', w / 2, 46); }), g);
+  const b = box(CX, 2.2, -5.85, 6, 1.6, .05, texMat('detBoard', 256, 64, (c, w, h) => { c.fillStyle = '#24493a'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4f1e6'; c.font = '34px "Luckiest Guy",Impact'; c.textAlign = 'center'; c.fillText('NACHSITZEN', w / 2, 46); }), g);
   const face = new THREE.Mesh(new THREE.CircleGeometry(.9, 24), M(0xffffff)); face.position.set(CX + 4.5, 2.6, -5.8); g.add(face);
   const hand = box(0, .35, .02, .08, .7, .02, 0x111111); const pivot = new THREE.Group(); pivot.position.copy(face.position); pivot.position.z += .03; pivot.add(hand); g.add(pivot);
   const hand2 = box(0, .25, .03, .1, .5, .02, 0xe8412c); const pivot2 = new THREE.Group(); pivot2.position.copy(pivot.position); pivot2.add(hand2); g.add(pivot2);
@@ -332,15 +332,16 @@ function frame(now) {
     if (!inGame) { lobbyTick(); const a = t * .05; camera.position.set(Math.sin(a) * 45, 22, Math.cos(a) * 45); camera.lookAt(0, 2, 0); }
     phaseCheck(dt);
     if (inGame && G.ph === 'detention') updateCut(dt, t);
-    else if (inGame) { updateMe(dt, t); updateSus(dt); checkBananas(); updateCamera(dt); }
+    else if (inGame) { updateMe(dt, t); updateSus(dt); checkBananas(); updateCamera(dt); updateHands(dt, t); }
     else renderChar(meCh, t, dt);
     if (inGame && G.ph !== 'detention') { updateCones(t); updateWaypoint(t); } else { wpArrow.visible = false; cones.forEach(c => c && (c.g.visible = false)); }
-    meCh.g.visible = meCh.shadow.visible = G.ph !== 'detention';
+    meCh.shadow.visible = G.ph !== 'detention'; meCh.g.visible = G.ph !== 'detention' && (!inGame || !!meCh.rg); // 1st person: eigener Körper nur beim Ragdoll
     updateRemote(dt, t); updateTeachers(dt, t); updateWanderers(dt, t); updateNPC(dt, t); updateProjs(dt);
     sendPresence(now);
     if (inGame) hudTick(now);
   } catch (e) { if (!frame.err) { frame.err = 1; console.error(e); } }
   renderer.render(scene, camera);
+  if (inGame) renderHands();
 }
 requestAnimationFrame(frame);
 window.__swyf = { G, ME, H, Net, act, startMG, GAMES, plan };

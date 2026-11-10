@@ -1,7 +1,7 @@
 // ---------------- local player ----------------
 const ME = { name: 'Schüler', color: COLORS[0], x: -20, y: 0, z: 0, ry: Math.PI / 2, vy: 0, seat: null, pts: 0, sus: 0, hw: [-1, -1, -1, -1], hf: [0, 0, 0, 0], items: [], rgc: 0, rv: [0, 0, 0], energyT: 0, warned: false, copy: null, cool: {}, pendLate: -1, nach: -1, checked: {}, awayT: 0, awayWarn: 0, tagT: 0, bonus: 0, knowTests: false, day: 0, run: -1, pose: 'idle', poseT: 0, spd: 0 };
 let meCh = null; const remote = new Map(); const tchCh = []; const npcCh = []; const wanCh = []; const WV = WAND.map(() => ({ x: 0, y: -50, z: 0, ry: 0, init: false })); const projs = []; const bananas = new Map();
-let started = false, yaw = -Math.PI / 2, pitch = .35, camDist = 4.6;
+let started = false, yaw = -Math.PI / 2, pitch = 0, camDist = 3.6;
 const keys = new Set();
 let jumpBuffer = 0, coyoteTime = 0;
 const meName = () => ME.name;
@@ -32,9 +32,8 @@ let dragging = false;
 canvas.addEventListener('mousedown', e => { Snd.init(); dragging = true; if (started && !MG.open && document.pointerLockElement !== canvas) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (err) { } } });
 addEventListener('mouseup', () => dragging = false);
 addEventListener('mousemove', e => {
-  if (document.pointerLockElement === canvas || dragging) { yaw -= e.movementX * .0028; pitch = clamp(pitch + e.movementY * .0022, -.25, 1.2); }
+  if (document.pointerLockElement === canvas || dragging) { yaw -= e.movementX * .0026; pitch = clamp(pitch + e.movementY * .0024, -1.4, 1.4); }
 });
-canvas.addEventListener('wheel', e => { camDist = clamp(camDist + Math.sign(e.deltaY) * .5, 2.2, 8); }, { passive: true });
 
 // ---------------- helpers ----------------
 function myRoom() { return roomAt(ME.x, ME.z, ME.y); }
@@ -153,7 +152,7 @@ function onKey(code) {
       if (!cd('g', 1.2)) break;
       const lis = hwLessons().filter(li => ME.hw[li] > 0); const li = lis.length ? lis.sort((a, b) => ME.hw[b] - ME.hw[a])[0] : -1;
       const fx = -Math.sin(yaw), fz = -Math.cos(yaw); if (!ME.seat) ME.ry = Math.atan2(fx, fz);
-      const p = [ME.x + fx * .5, ME.y + 1.6, ME.z + fz * .5], v = [fx * 11, 3.2 + pitch * 2, fz * 11];
+      const cp = Math.cos(pitch), p = [ME.x + fx * .5, ME.y + 1.7, ME.z + fz * .5], v = [fx * 12 * cp, 2.6 - Math.sin(pitch) * 12, fz * 12 * cp]; ME.throwT = .35;
       spawnProj(p, v, true, li, li >= 0 ? ME.hw[li] : 0, li >= 0 ? ME.hf[li] : 0); act('throw', { p, v }); Snd.whoosh(); setPose('raise', .5);
       spikeIfSeen(22); break;
     }
@@ -190,7 +189,7 @@ function interact() {
   const now = performance.now() / 1000;
   let best = null, bd = 9; INTER.forEach(it => { const d = Math.hypot(it.x - ME.x, it.z - ME.z); if (d < it.r && Math.abs(it.y - ME.y) < 1.5 && d < bd) { bd = d; best = it; } });
   if (best) { doInter(best, now); return; }
-  const s = nearestSeat(); if (s) { ME.seat = s; ME.x = s.x; ME.z = s.z; ME.y = s.y; ME.ry = s.ry; Snd.squeak(); }
+  const s = nearestSeat(); if (s) { ME.seat = s; ME.x = s.x; ME.z = s.z; ME.y = s.y; ME.ry = s.ry; yaw = s.ry + Math.PI; pitch = .12; Snd.squeak(); }
 }
 function nearestSeat() {
   const r = myRoom(); if (r.type !== 'class') return null; const seats = SEATS[r.i]; let best = null, bd = 1.6;
@@ -444,7 +443,7 @@ function updateMe(dt, t) {
     for (let step = 0; step < steps; step++) {
       const dt = stepDt;
       let tvx = 0, tvz = 0;
-      if (mx || mz) { const l = Math.hypot(mx, mz); const fx = -Math.sin(yaw), fz = -Math.cos(yaw); const rx = -fz, rz = fx; tvx = (fx * mz - rx * mx) / l * speed; tvz = (fz * mz - rz * mx) / l * speed; ME.ry = lerpAng(ME.ry, Math.atan2(tvx, tvz), 1 - Math.exp(-28 * dt)); }
+      if (mx || mz) { const l = Math.hypot(mx, mz); const fx = -Math.sin(yaw), fz = -Math.cos(yaw); const rx = -fz, rz = fx; tvx = (fx * mz - rx * mx) / l * speed; tvz = (fz * mz - rz * mx) / l * speed; }
       const onGround = ME.vy <= 0 && ME.y <= groundAt(ME.x, ME.z, ME.y) + .02;
       if (onGround && !busy) coyoteTime = .10;
       const acc = (mx || mz) ? (onGround ? 32 : 24) : 48;
@@ -465,6 +464,7 @@ function updateMe(dt, t) {
       coyoteTime = Math.max(0, coyoteTime - dt);
     }
   }
+  if (!ME.seat && !meCh.rg && !busy) ME.ry = lerpAng(ME.ry, Math.atan2(-Math.sin(yaw), -Math.cos(yaw)), 1 - Math.exp(-30 * dt));
   if (ME.y < -5) { ME.x = -20; ME.z = 0; ME.y = 0; }
   // copy progress
   if (ME.copy) {
@@ -518,15 +518,80 @@ function updateWaypoint(t) {
   WP = { ...tgt, label, d: Math.hypot(tgt.x - ME.x, tgt.z - ME.z) };
   wpArrow.visible = true; wpArrow.position.set(tgt.x, tgt.y + 2.6 + Math.sin(t * 4) * .2, tgt.z); wpArrow.rotation.y = t * 2;
 }
-const ray = new THREE.Raycaster(); const camTarget = new THREE.Vector3(); let camD = 4.6;
+const ray = new THREE.Raycaster(); const camTarget = new THREE.Vector3(); let camD = 3.6, eyeY = null;
+const lookDir = new THREE.Vector3();
 function updateCamera(dt) {
-  const head = meCh.rg ? meCh.rg.p[1] : _v.set(ME.x, ME.y + 1.55, ME.z);
-  camTarget.lerp(head, 1 - Math.exp(-(meCh.rg ? 6 : 26) * dt)); if (camTarget.distanceTo(head) > 6) camTarget.copy(head);
-  const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
-  let d = camDist; ray.set(camTarget, dir); ray.far = camDist + .3; const hit = ray.intersectObjects(camBlockers, false)[0]; if (hit) d = Math.max(.6, hit.distance - .3);
-  camD = d < camD ? d : lerp(camD, d, 1 - Math.exp(-8 * dt));
-  camera.position.copy(camTarget).addScaledVector(dir, camD);
-  const ceil = floorOf(ME.y + .2) * FH + 3.75; if (Math.abs(ME.x) < 24 && Math.abs(ME.z) < 12 && camera.position.y > ceil) camera.position.y = ceil;
-  if (ME.energyT > 0) { camera.position.x += Math.sin(performance.now() / 40) * .03; }
-  camera.lookAt(camTarget);
+  lookDir.set(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+  if (meCh.rg) {
+    // Beim Ragdoll kurz raus aus dem Kopf: man soll sich fliegen sehen.
+    const head = meCh.rg.p[1]; camTarget.lerp(head, 1 - Math.exp(-6 * dt)); if (camTarget.distanceTo(head) > 6) camTarget.copy(head);
+    const dir = new THREE.Vector3(Math.sin(yaw) * .9, .44, Math.cos(yaw) * .9).normalize();
+    let d = camDist; ray.set(camTarget, dir); ray.far = camDist + .3; const hit = ray.intersectObjects(camBlockers, false)[0]; if (hit) d = Math.max(.6, hit.distance - .3);
+    camD = d < camD ? d : lerp(camD, d, 1 - Math.exp(-8 * dt));
+    camera.position.copy(camTarget).addScaledVector(dir, camD); camera.lookAt(camTarget); eyeY = null; return;
+  }
+  const bob = Math.abs(Math.sin(meCh.ph)) * .07 * Math.min(1, ME.spd / 5);
+  const target = ME.y + (ME.seat ? 1.72 : 1.95) * meCh.sz + bob + clamp(meCh.sq || 0, -.35, .35) * .35;
+  eyeY = eyeY === null || Math.abs(eyeY - target) > 2 ? target : lerp(eyeY, target, 1 - Math.exp(-30 * dt));
+  camera.position.set(ME.x, eyeY, ME.z);
+  if (ME.energyT > 0) { camera.position.x += Math.sin(performance.now() / 40) * .02; }
+  camTarget.copy(camera.position); camD = 0;
+  camera.lookAt(_v2.copy(camera.position).add(lookDir));
+  // leichtes Neigen beim Seitwärtslaufen
+  const side = (ME.vx || 0) * Math.cos(yaw) - (ME.vz || 0) * Math.sin(yaw);
+  ME.roll = lerp(ME.roll || 0, clamp(-side * .006, -.04, .04), 1 - Math.exp(-8 * dt)); camera.rotateZ(ME.roll);
+}
+// ---------- first person: Cartoon-Handschuhe als eigene Szene (clippen nie in Wände) ----------
+const handScene = new THREE.Scene(), handCam = new THREE.PerspectiveCamera(62, 1, .01, 10);
+handScene.add(new THREE.HemisphereLight(0xfff4ff, 0x7a5aa8, 1.05)); { const l = new THREE.DirectionalLight(0xfff0e0, .45); l.position.set(1, 2, 1.5); handScene.add(l); }
+function makeGlove(sd) {
+  const g = new THREE.Group(), w = M(0xffffff), wd = M(0xe9e4f2);
+  const palm = new THREE.Group(); g.add(palm);
+  ball(0, 0, 0, .17, .12, .19, w, palm);
+  [-.055, 0, .055].forEach((x, i) => { const f = ball(x * sd, .015, -.15 - (i === 1 ? .015 : 0), .06, .06, .16, w, palm); f.rotation.x = -.15; });
+  const th = ball(-.1 * sd, -.005, -.04, .06, .06, .13, w, palm); th.rotation.y = .7 * sd;
+  [-.055, 0].forEach(x => box(x * sd + .027 * sd, .06, -.05, .006, .003, .07, M(0x6a5a90), palm)); // Handschuh-Nähte
+  const cuff = new THREE.Mesh(TOR, wd); cuff.scale.set(.26, .26, .5); cuff.position.z = .11; palm.add(cuff);
+  ball(0, 0, .12, .2, .16, .08, wd, palm);
+  const sleeve = new THREE.Mesh(CYL, M(new THREE.Color(ME.color).getHex())); sleeve.rotation.x = Math.PI / 2; sleeve.scale.set(.17, .4, .17); sleeve.position.z = .34; palm.add(sleeve);
+  ball(0, 0, .16, .19, .19, .06, M(new THREE.Color(ME.color).multiplyScalar(.8).getHex()), palm);
+  g.scale.setScalar(.68); handScene.add(g); g.userData = { sd, palm, sleeve, p: new THREE.Vector3(), r: new THREE.Euler() }; return g;
+}
+let hands = null, phone = null;
+function initHands() {
+  if (hands) hands.forEach(h => handScene.remove(h));
+  hands = [makeGlove(1), makeGlove(-1)];
+  phone = new THREE.Group(); box(0, 0, 0, .12, .22, .02, 0x1f1a33, phone); const scr = new THREE.Mesh(new THREE.PlaneGeometry(.1, .18), new THREE.MeshBasicMaterial({ color: 0x8af0ff })); scr.position.z = .012; phone.add(scr);
+  handScene.add(phone); phone.visible = false;
+}
+const _hp = new THREE.Vector3();
+function updateHands(dt, t) {
+  if (!hands) initHands();
+  const pose = meCh.pose, k = Math.min(1, ME.spd / 5), ph = meCh.ph;
+  ME.lyaw = ME.lyaw ?? yaw; ME.lpitch = ME.lpitch ?? pitch;
+  const dy = angDiff(ME.lyaw, yaw), dp = pitch - ME.lpitch; ME.lyaw = yaw; ME.lpitch = pitch;
+  ME.sway = ME.sway || { x: 0, y: 0 }; ME.sway.x = lerp(ME.sway.x + dy * .6, 0, 1 - Math.exp(-10 * dt)); ME.sway.y = lerp(ME.sway.y - dp * .6, 0, 1 - Math.exp(-10 * dt));
+  if (ME.throwT > 0) ME.throwT -= dt;
+  hands.forEach((h, i) => {
+    const sd = h.userData.sd, swing = Math.sin(ph + i * Math.PI);
+    let x = .25 * sd, y = -.25 - Math.abs(Math.cos(ph)) * .025 * k + Math.sin(t * 2) * .006, z = -.58 + swing * .05 * k, rx = .25, ry = -.12 * sd, rz = .1 * sd;
+    if (ME.seat) { y -= .04; z -= .03; }
+    if (pose === 'write') { x = .14 * sd; y = -.36; z = -.5; rx = .9; ry = 0; if (i === 0) { x += Math.sin(t * 24) * .015; z += Math.cos(t * 17) * .01; } }
+    if (pose === 'phone' && i === 1) { x = -.1; y = -.24; z = -.5; rx = .7; ry = .1; rz = 0; }
+    if (pose === 'raise' && i === 0) { if (ME.throwT > 0) { const q = 1 - ME.throwT / .35; x = .26; y = -.05 + Math.sin(q * Math.PI) * .1; z = -.4 - q * .45; rx = -.4 + q * .8; } else { x = .3; y = .12 + Math.sin(t * 12) * .03; z = -.55; rx = -.9; rz = Math.sin(t * 12) * .25; } }
+    if (pose === 'point' && i === 0) { const q = clamp(ME.poseT / .5, 0, 1); x = .16; y = -.2; z = -.62 - Math.sin(q * Math.PI) * .32; rx = .05; ry = 0; }
+    if (pose === 'panic') { x = .28 * sd; y = .02 + Math.sin(t * 20 + i * 3) * .08; z = -.5; rx = -.8; rz = Math.sin(t * 20 + i) * .4; }
+    if (ME.vy) y -= clamp(ME.vy * .008, -.06, .06);
+    x += ME.sway.x * .5; y += ME.sway.y * .5;
+    const u = h.userData, f = 1 - Math.exp(-16 * dt);
+    u.p.lerp(_hp.set(x, y, z), f); u.r.set(lerp(u.r.x, rx, f), lerp(u.r.y, ry, f), lerp(u.r.z, rz, f));
+    h.position.copy(u.p); h.rotation.copy(u.r);
+  });
+  phone.visible = pose === 'phone'; if (phone.visible) { phone.position.copy(hands[1].position).add(_hp.set(.02, .1, -.04)); phone.rotation.set(-.12, .12, 0); }
+}
+function renderHands() {
+  const show = started && G.ph !== 'lobby' && G.ph !== 'detention' && !meCh.rg;
+  if (!show || !hands) return;
+  if (handCam.aspect !== camera.aspect) { handCam.aspect = camera.aspect; handCam.updateProjectionMatrix(); }
+  renderer.autoClear = false; renderer.clearDepth(); renderer.render(handScene, handCam); renderer.autoClear = true;
 }
