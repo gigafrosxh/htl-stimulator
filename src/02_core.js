@@ -554,7 +554,19 @@ function buildWorld() {
         rounded(x, y + 0.777, zIn(8.92), .68, 0.056, .28, 0xffffff);
         rounded(x, y + 0.672, zIn(8.76), .48, 0.336, .06, 0xffffff); // raised lid
         rounded(x + .2, y + 0.665, zIn(8.77), .13, 0.035, .05, 0x82b5c9); box(x + .9, y + 1.1, zIn(7.6), .08, 2.2, 2.6, 0x7fb3d5); }
-      rounded(r.x1 - 1.5, y + .75, zIn(4), .9, .1, 2.5, 0xffffff);
+      { // Waschtisch an der Wand: Unterschrank, Platte, zwei Becken, Hähne und Spiegel
+        const wx = r.x1 - T - .34, wz = zIn(4);
+        rounded(wx, y + .38, wz, .62, .76, 2.5, 0x6fc7c9);
+        rounded(wx, y + .8, wz, .68, .08, 2.6, 0xffffff);
+        [-.6, .6].forEach(dz => {
+          db(wx - .02, y + .83, wz + dz, .42, .06, .5, 0xd9eef7, SPH);
+          db(wx + .22, y + .92, wz + dz, .05, .18, .05, 0xb8c4cc, CYL);
+          db(wx + .14, y + 1.0, wz + dz, .2, .04, .04, 0xb8c4cc);
+          rounded(r.x1 - T - .006, y + 1.55, wz + dz, .012, .88, .7, 0xffffff);
+          box(r.x1 - T - .022, y + 1.55, wz + dz, .02, .8, .62, 0xbfe7f5);
+        });
+        WALLS.push({ x0: wx - .34, x1: r.x1, z0: wz - 1.3, z1: wz + 1.3, f: r.f });
+      }
       sign(r.f ? TR('WC 🚽 OG') : TR('WC 🚽 EG'), r.cx, y + 2.8, zIn(9.4) - s * .01, s > 0 ? Math.PI : 0, 2.4, '#18b5b5');
     } else if (r.type === 'library') {
       for (let k = 0; k < 4; k++) {
