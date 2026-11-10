@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>School With Your Friends</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Patrick+Hand&display=swap">
@@ -38,6 +39,22 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
 .keys{font-size:14px;line-height:1.35;columns:2;column-gap:18px}
 .keys b{display:inline-block;min-width:44px;font-family:var(--f-display);font-weight:400;font-size:13px;background:var(--ink);color:var(--paper);border-radius:3px;padding:1px 4px;margin-right:4px;text-align:center}
 @media (max-width:520px){.keys{columns:1}}
+
+
+/* ---------- Esc-Menü ---------- */
+#pause{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(31,26,51,.6);backdrop-filter:blur(3px)}
+#pause .card{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:18px 22px;transform:rotate(-.8deg);display:flex;flex-direction:column;gap:12px}
+#pause h2{font-family:var(--f-display);font-weight:400;font-size:44px;margin:0;color:var(--red);text-shadow:3px 3px 0 var(--ink);line-height:1}
+#pause h2 small{display:block;font-family:var(--f-hand);font-size:16px;color:var(--ink);text-shadow:none;margin-top:4px}
+#pause .btns{display:flex;flex-direction:column;gap:8px}
+#pause .btns button{width:100%;text-align:left}
+#pause fieldset{border:2px dashed var(--ink);border-radius:6px;padding:8px 12px;margin:0;display:flex;flex-direction:column;gap:8px}
+#pause legend{font-family:var(--f-display);font-size:16px;padding:0 6px}
+#pause .set{display:grid;grid-template-columns:150px 1fr 48px;gap:10px;align-items:center;font-size:16px}
+#pause .set output{text-align:right;font-variant-numeric:tabular-nums}
+#pause input[type=range]{width:100%;accent-color:var(--red)}
+#pause .chk{display:flex;gap:8px;align-items:center;font-size:16px}
+@media (max-width:520px){#pause .set{grid-template-columns:1fr 48px}#pause .set label{grid-column:1/-1}}
 
 /* ---------- HUD ---------- */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:5}
@@ -159,7 +176,7 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
   <div id="xhair"></div>
   <div id="prompt"></div>
   <div id="wp" hidden><span id="wpArrow">⬆</span><span id="wpText"></span></div>
-  <div id="lockHint" hidden>Klick ins Bild, um mit der Maus zu schauen (Esc gibt sie wieder frei)</div>
+  <div id="lockHint" hidden>Klick ins Bild, um mit der Maus zu schauen (Esc öffnet das Menü)</div>
   <div id="susBox"><span id="eye">Verdacht</span><div class="bar"><i id="susBar"></i></div></div>
   <div id="inv"></div>
   <div id="help"><b>E</b> Sitzen/Benutzen · <b>H</b> HÜ · <b>F</b> Abschreiben · <b>V</b> Stehlen · <b>G</b> Zettel · <b>R</b> Schubsen · <b>Q</b> Frage · <b>X</b> Petzen · <b>1-3</b> Items<br>Lehrer schaut weg = Hausübung machen. Lehrer schaut her = unschuldig gucken.</div>
@@ -169,6 +186,34 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
   <div id="mgHead"><span id="mgTitle">Mathe</span><span id="mgSub"></span></div>
   <div id="mgBody"></div>
   <div id="mgFoot"><button class="sec" id="mgFake" type="button">Antworten erfinden</button><span id="mgStress"></span><button class="sec" id="mgCancel" type="button">Weg damit (Esc)</button></div>
+</div>
+
+
+<div id="pause" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+  <div class="card paper">
+    <h2 id="pauseTitle">Pause<small id="pauseSub">Die Lehrer warten nicht (im Mehrspieler läuft die Zeit weiter).</small></h2>
+    <div class="btns">
+      <button id="pResume" type="button">▶ Weiterspielen (Esc)</button>
+      <button id="pKeys" class="sec" type="button">⌨ Steuerung anzeigen</button>
+      <button id="pLeave" class="sec" type="button">🚪 Klasse verlassen (zurück zur Lobby)</button>
+    </div>
+    <div id="pKeyList" class="keys hidden">
+      <div><b>WASD</b>Laufen <b>Shift</b>Rennen</div><div><b>Maus</b>Umsehen</div>
+      <div><b>E</b>Hinsetzen / Benutzen</div><div><b>H</b>Hausübung machen</div>
+      <div><b>F</b>Abschreiben (nah)</div><div><b>V</b>HÜ stehlen</div>
+      <div><b>G</b>Zettel werfen</div><div><b>R</b>Schubsen</div>
+      <div><b>Q</b>Dumme Frage stellen</div><div><b>X</b>Verpetzen (beim Lehrer)</div>
+      <div><b>1-3</b>Item benutzen</div><div><b>Space</b>Springen</div>
+      <div><b>M</b>Ton an/aus</div><div><b>Esc</b>Dieses Menü</div>
+    </div>
+    <fieldset><legend>Einstellungen</legend>
+      <div class="set"><label for="sSens">Maus-Empfindlichkeit</label><input type="range" id="sSens" min="0.3" max="2.5" step="0.05"><output id="oSens"></output></div>
+      <div class="set"><label for="sFov">Sichtfeld (FOV)</label><input type="range" id="sFov" min="60" max="100" step="1"><output id="oFov"></output></div>
+      <div class="set"><label for="sVol">Lautstärke</label><input type="range" id="sVol" min="0" max="1" step="0.05"><output id="oVol"></output></div>
+      <label class="chk"><input type="checkbox" id="sInv"> Maus Y-Achse umkehren</label>
+      <label class="chk"><input type="checkbox" id="sBob"> Kopfwippen beim Laufen</label>
+    </fieldset>
+  </div>
 </div>
 
 <div id="big" class="hidden"><div id="bigCard" class="paper"></div></div>

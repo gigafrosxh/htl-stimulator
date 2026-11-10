@@ -33,6 +33,7 @@ Alle paar Tage (in der Lobby einstellbar) ist die 3. Stunde eine Schularbeit. Im
 |---|---|
 | WASD / Shift / Space | Laufen / Rennen / Springen |
 | Maus (Klick) | Umsehen (Ego-Perspektive; beim Ragdoll geht die Kamera kurz nach hinten) |
+| Esc | Menü mit Einstellungen (Maus, FOV, Lautstärke) |
 | E | Hinsetzen, benutzen (Automat, Feueralarm, Lehrerzimmer ...) |
 | H | Hausübung machen |
 | F / V | Abschreiben / HÜ stehlen |
