@@ -27,42 +27,42 @@ const TEACH = [
 ];
 const DIR = 4, SUP = 5;
 const PERS = {
-  streng: { spd: 2.3, view: 13, fov: 1.7, sus: 1.45, board: .22, nap: 0, tele: 0, forget: 0, fake: .75, label: 'extrem streng' },
-  entspannt: { spd: 1.3, view: 8, fov: 1.15, sus: .6, board: .32, nap: .28, tele: 0, forget: .15, fake: .2, label: 'entspannt' },
-  chaotisch: { spd: 2.9, view: 11, fov: 1.45, sus: 1.1, board: .25, nap: .05, tele: .28, forget: .2, fake: .5, label: 'unberechenbar' },
-  vergesslich: { spd: 1.6, view: 10, fov: 1.3, sus: .9, board: .3, nap: .1, tele: 0, forget: .5, fake: .35, label: 'vergesslich' },
-  direktor: { spd: 1.5, view: 15, fov: 1.8, sus: 2.1, board: 0, nap: 0, tele: 0, forget: 0, fake: .9, label: 'der Direktor' },
-  supplier: { spd: 1.0, view: 6, fov: 1.0, sus: .4, board: .2, nap: .6, tele: 0, forget: 1, fake: .1, label: 'Supplierlehrer' },
+  streng: { spd: 2.3, view: 13, fov: 1.7, sus: 1.45, board: .22, nap: 0, tele: 0, forget: 0, fake: .75, label: TR('sehr streng') },
+  entspannt: { spd: 1.3, view: 8, fov: 1.15, sus: .6, board: .32, nap: .28, tele: 0, forget: .15, fake: .2, label: TR('entspannt') },
+  chaotisch: { spd: 2.9, view: 11, fov: 1.45, sus: 1.1, board: .25, nap: .05, tele: .28, forget: .2, fake: .5, label: TR('unberechenbar') },
+  vergesslich: { spd: 1.6, view: 10, fov: 1.3, sus: .9, board: .3, nap: .1, tele: 0, forget: .5, fake: .35, label: TR('vergesslich') },
+  direktor: { spd: 1.5, view: 15, fov: 1.8, sus: 2.1, board: 0, nap: 0, tele: 0, forget: 0, fake: .9, label: TR('Direktor') },
+  supplier: { spd: 1.0, view: 6, fov: 1.0, sus: .4, board: .2, nap: .6, tele: 0, forget: 1, fake: .1, label: TR('Supplierlehrer') },
 };
 const ITEMS = {
-  energy: { icon: '🥤', name: 'Energy Drink', desc: 'Schneller + mehr Zeit bei HÜs' },
-  rechner: { icon: '🧮', name: 'Taschenrechner', desc: 'Nächste HÜ/Test +35%' },
-  spick: { icon: '📜', name: 'Spickzettel', desc: 'Nächste HÜ/Test +35%' },
-  ausrede: { icon: '📄', name: 'Entschuldigung', desc: 'Hebt die nächste Strafe auf' },
-  loesung: { icon: '🗝️', name: 'Testlösungen', desc: 'Nächster Test = Sehr gut' },
-  banane: { icon: '🍌', name: 'Bananenschale', desc: 'Fallen lassen. Warten. Lachen.' },
+  energy: { icon: '🥤', name: TR('Energy Drink'), desc: TR('Schneller laufen und mehr Zeit für die HÜ') },
+  rechner: { icon: '🧮', name: TR('Taschenrechner'), desc: TR('Nächste HÜ oder nächster Test +35 %') },
+  spick: { icon: '📜', name: TR('Spickzettel'), desc: TR('Nächste HÜ oder nächster Test +35 %') },
+  ausrede: { icon: '📄', name: TR('Entschuldigung'), desc: TR('Rettet dich einmal vor einer Strafe') },
+  loesung: { icon: '🗝️', name: TR('Testlösungen'), desc: TR('Beim nächsten Test gibt\'s ein Sehr gut') },
+  banane: { icon: '🍌', name: TR('Bananenschale'), desc: TR('Hinlegen und warten, bis ein Lehrer drauftritt') },
 };
 const COLORS = ['#e8412c', '#2f6fd6', '#36b45a', '#ffb000', '#9b59b6', '#ff6fb5', '#18b5b5', '#8d5a2b'];
-const DAYNAMES = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag?!', 'Sonntag?!?'];
-const GRADE = q => q >= .9 ? [1, 'Sehr gut'] : q >= .75 ? [2, 'Gut'] : q >= .6 ? [3, 'Befriedigend'] : q >= .45 ? [4, 'Genügend'] : [5, 'Nicht genügend'];
+const DAYNAMES = TA(['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag?!', 'Sonntag?!']);
+const GRADE = q => q >= .9 ? [1, TR('Sehr gut')] : q >= .75 ? [2, TR('Gut')] : q >= .6 ? [3, TR('Befriedigend')] : q >= .45 ? [4, TR('Genügend')] : [5, TR('Nicht genügend')];
 
-const SAY = {
-  check: ['Hausübungskontrolle! Hefte raus!', 'So, wer hat die Hausübung? Alle, oder?', 'Ich will Hausübungen sehen. JETZT.'],
-  sus: ['Was machst du da, {n}?', '{n}... ich seh dich.', 'Hmm? {n}?', 'Ist das eine Hausübung für ein anderes Fach, {n}?'],
-  caught: ['ERWISCHT, {n}!', '{n}! Das gibt Konsequenzen!', 'Glaubst du ich bin blind, {n}?!', 'Zu mir! Sofort! {n}!'],
-  question: ['Gute Frage! Also, die Wurzel aus Banane ist...', 'Ähm. Das erkläre ich an der Tafel. Ausführlich.', 'Interessant! Napoleon war übrigens 1,57 Meter...', 'Wie bitte? Okay... *dreht sich zur Tafel*', 'Die Antwort ist 42. Ich zeig\'s euch.'],
-  board: ['*kritzel kritzel*', 'Also, wie man hier sieht...', '*quietsch*', 'Und DAS kommt zur Schularbeit!'],
-  nap: ['Zzz...', 'Zzzz... Hausübung... zzz', '*schnarch*'],
-  late: ['Zu spät, {n}! Eintrag!', '{n}, schön dass du auch kommst.'],
-  tele: ['Na?', 'Überraschung.', 'Buh.', 'Ich bin überall.'],
-  snitch: ['Danke, {s}. {n}, nach vorne!', 'Ach so ist das, {n}?'],
-  hit: ['AU! Wer war das?!', 'Hat mich gerade ein ZETTEL getroffen?!'],
-  shove: ['HEY! Lehrerangriff!', 'Das sag ich dem Direktor!'],
-  staff: ['Raus aus dem Lehrerzimmer!', 'Schüler im Lehrerzimmer!!'],
-  coffee: ['*schlürf*', 'Der Kaffee ist kalt...', 'Noch 34 Jahre bis zur Pension.'],
-  dir: ['Nicht laufen am Gang!', 'Ich beobachte euch alle.', 'Hmm.'],
-};
-const fillSay = (s, o = {}) => s.replace('{n}', o.n || '').replace('{s}', o.s || '');
+// Lehrersprüche bleiben deutsch im Netz (als Schlüssel) und werden erst beim Anzeigen übersetzt.
+const SAY = N_({
+  check: ['Hausübungskontrolle, Hefte raus!', 'So, dann zeigt mir mal eure Hausübungen.', 'Ich will jetzt eure Hausübungen sehen.'],
+  sus: ['Was machst du da, {n}?', '{n}, ich seh dich.', 'Hm? {n}?', '{n}, ist das eine Hausübung für ein anderes Fach?'],
+  caught: ['Erwischt, {n}!', '{n}! Das hat Konsequenzen!', 'Glaubst du, ich bin blind, {n}?', '{n}, sofort zu mir!'],
+  question: ['Gute Frage! Also, die Wurzel aus Banane ist ungefähr ...', 'Äh. Das erklär ich euch an der Tafel. Ausführlich.', 'Spannend. Da muss ich ein bisschen ausholen.', 'Wie bitte? Na gut. *dreht sich zur Tafel*', 'Die Antwort ist 42. Ich zeig\'s euch.'],
+  board: ['*kritzel kritzel*', 'Also, wie man hier sieht', '*quietsch*', 'Und genau das kommt zur Schularbeit!'],
+  nap: ['Zzz', 'Zzz ... Hausübung ... zzz', '*schnarch*'],
+  late: ['Zu spät, {n}. Das gibt einen Eintrag.', 'Ah, {n}. Schön, dass du auch noch kommst.'],
+  tele: ['Na?', 'Überraschung!', 'Buh.', 'Ich bin überall.'],
+  snitch: ['Danke, {s}. {n}, komm bitte nach vorne.', 'So ist das also, {n}?'],
+  hit: ['Au! Wer war das?', 'Hat mich da grad ein Zettel getroffen?'],
+  shove: ['Hey! Spinnst du?', 'Das sag ich dem Direktor!'],
+  staff: ['Raus aus dem Lehrerzimmer!', 'Was macht ein Schüler im Lehrerzimmer?'],
+  coffee: ['*schlürf*', 'Der Kaffee ist schon wieder kalt.', 'Noch 34 Jahre bis zur Pension.'],
+  dir: ['Am Gang wird nicht gerannt!', 'Ich hab euch alle im Blick.', 'Hm.'],
+});
 
 // ---------------- audio ----------------
 const Snd = (() => {
@@ -231,6 +231,8 @@ const LAYOUT = [
   [1, 1, 0, '2A', 'class'], [1, 1, 1, '2B', 'class'], [1, 1, 2, 'Physiksaal', 'class'], [1, 1, 3, 'Lehrerzimmer', 'staff'],
   [1, -1, 0, 'Klo OG', 'toilet'], [1, -1, 1, 'Zeichensaal', 'class'], [1, -1, 2, 'Direktion', 'office'], [1, -1, 3, 'Stiegenhaus', 'stairs'],
 ];
+// Raumnamen sind auch IDs und bleiben deutsch, angezeigt wird TR(name).
+N_(['1A', '1B', '1C', '2A', '2B', 'Chemiesaal', 'Klo EG', 'Bibliothek', 'Buffet', 'Stiegenhaus', 'Physiksaal', 'Lehrerzimmer', 'Klo OG', 'Zeichensaal', 'Direktion', 'Gang OG', 'Gang EG', 'Schulhof', 'Mathe', 'Deutsch', 'Englisch', 'Chemie', 'Physik', 'Geschichte', 'Biologie', 'Kunst']);
 const ROOMS = LAYOUT.map(([f, side, col, name, type], i) => {
   const x0 = COLS[col], x1 = COLS[col + 1], z0 = side > 0 ? 2.5 : -12, z1 = side > 0 ? 12 : -2.5;
   return { i, f, side, name, type, x0, x1, z0, z1, cx: (x0 + x1) / 2, doorX: (x0 + x1) / 2, y: f * FH };
@@ -355,7 +357,7 @@ function boardTex(lines) { return texMat('board:' + lines.join('|'), 512, 256, (
   g.strokeStyle = '#b4be9a'; g.lineWidth = 4; g.strokeRect(2, 2, w - 4, h - 4);
   g.fillStyle = '#f4f1e6'; g.font = '40px "Patrick Hand", "Comic Sans MS", cursive'; lines.forEach((l, i) => g.fillText(l, 28, 64 + i * 60));
 }); }
-const BOARD_TEXT = [['2 + 2 = Fisch', 'x = vielleicht', 'Hausübung: ALLES'], ['Der Hund, die Katze,', 'das Hausübung (?)', 'Diktat morgen!!'], ['H2O + Wurst = ?', 'NICHT trinken!!', 'Explosion ≠ gut'], ['1492: irgendwas', 'Napoleon: klein', 'Test bald (geheim)'], ['F = m · a · Pech', 'Schwerkraft: ja', 'Formel lernen!'], ['Zeichnet eine Katze', 'aber realistisch', 'mit Gefühl']];
+const BOARD_TEXT = TA([['2 + 2 = Fisch', 'x = vielleicht', 'Hausübung: ALLES'], ['Der Hund, die Katze,', 'das Hausübung (?)', 'Diktat morgen!!'], ['H2O + Wurst = ?', 'NICHT trinken!!', 'Explosion ≠ gut'], ['1492: irgendwas', 'Napoleon: klein', 'Test bald (geheim)'], ['F = m · a · Pech', 'Schwerkraft: ja', 'Formel lernen!'], ['Zeichnet eine Katze,', 'aber realistisch', 'und mit Gefühl']]);
 
 // Neonschilder: dunkles Feld, leuchtende Schrift mit Glühen und Leuchtrahmen.
 function neonCol(c) { const col = new THREE.Color(c); const hsl = {}; col.getHSL(hsl); col.setHSL(hsl.h, Math.min(1, hsl.s + .2), Math.max(.62, hsl.l)); return '#' + col.getHexString(); }
@@ -424,7 +426,7 @@ function buildWorld() {
   const grass = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), texGrass); grass.rotation.x = -Math.PI / 2; grass.position.y = -0.02; scene.add(grass);
   for (let i = 0; i < 26; i++) { const a = rnd(Math.PI * 2), r = rnd(34, 70); const x = Math.cos(a) * r, z = Math.sin(a) * r; box(x, 1.2, z, .5, 2.4, .5, 0x7a5230); const s = rnd(2, 3.5); const t = box(x, 2.6 + s / 2, z, s, s, s, 0x3f9b3a); t.geometry = SPH; t.rotation.y = rnd(3); }
   box(-31, 0.01, 0, 14, .02, 5, 0xb0a890); // path
-  sign('SCHULE', -24.39, FH + 2.4, 0, -Math.PI / 2, 5, '#e8412c');
+  sign(TR('SCHULE'), -24.39, FH + 2.4, 0, -Math.PI / 2, 5, '#e8412c');
   // Dachkante statt Dachplatte: OG bleibt von oben lesbar.
   [FH - .08, FH + WH + .08].forEach(y => {
     [-12.2, 12.2].forEach(z => db(0, y, z, 48.6, .24, .38, 0xb56c4e));
@@ -434,7 +436,7 @@ function buildWorld() {
   db(-24.35, 3.1, 0, .55, .35, 3.3, 0xb56c4e); // Eingang, lichte Breite bleibt frei
   [-1.48, 1.48].forEach(z => db(-24.22, 1.5, z, .32, 3, .22, 0xffe7bb));
   db(-24.28, FH + 2.4, 0, .16, 1.45, 5.4, 0xffe7bb);
-  sign('Kein Boom!', -24.38, FH + .9, 0, -Math.PI / 2, 3.2, '#416957');
+  sign(TR('Kein Boom!'), -24.38, FH + .9, 0, -Math.PI / 2, 3.2, '#416957');
   const leafGeo = new THREE.SphereGeometry(1, 16, 10);
   [-1, 1].forEach(side => {
     const z = side * 7;
@@ -473,8 +475,8 @@ function buildWorld() {
       const tape = texMat('barrier', 128, 32, (g, w, h) => { g.fillStyle = '#ffd23f'; g.fillRect(0, 0, w, h); g.fillStyle = '#1f1a33'; for (let x = -h; x < w + h; x += 24) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + 12, h); g.lineTo(x + 12 + h, 0); g.lineTo(x + h, 0); g.closePath(); g.fill(); } }, [3, 1]);
       [[.75, .35], [1.55, -.35], [2.3, .2]].forEach(([y, rx]) => { const b = box(-23.8, y, 0, .12, .32, 3.1, tape); b.rotation.x = rx; });
       [-1.35, 1.35].forEach(z => box(-23.8, 1.25, z, .2, 2.5, .2, woodMat(0x9a6a3a)));
-      sign('COMING SOON', -23.66, 2.85, 0, Math.PI / 2, 2.6, '#ff4fb8');
-      const note = new THREE.Mesh(new THREE.PlaneGeometry(.9, .6), new THREE.MeshBasicMaterial({ map: cTex('soonNote', 192, 128, (g, w, h) => { g.fillStyle = '#fffdf2'; g.fillRect(0, 0, w, h); g.fillStyle = '#1f1a33'; g.font = '26px "Patrick Hand", cursive'; g.textAlign = 'center'; g.fillText('Schulhof', w / 2, 40); g.fillText('kommt bald!', w / 2, 72); g.font = '18px "Patrick Hand", cursive'; g.fillText('- Die Direktion', w / 2, 108); }) }));
+      sign(TR('COMING SOON'), -23.66, 2.85, 0, Math.PI / 2, 2.6, '#ff4fb8');
+      const note = new THREE.Mesh(new THREE.PlaneGeometry(.9, .6), new THREE.MeshBasicMaterial({ map: cTex('soonNote', 192, 128, (g, w, h) => { g.fillStyle = '#fffdf2'; g.fillRect(0, 0, w, h); g.fillStyle = '#1f1a33'; g.font = '26px "Patrick Hand", cursive'; g.textAlign = 'center'; g.fillText(TR('Schulhof'), w / 2, 40); g.fillText(TR('kommt bald!'), w / 2, 72); g.font = '18px "Patrick Hand", cursive'; g.fillText(TR('Die Direktion'), w / 2, 108); }) }));
       note.position.set(-23.6, 1.15, .55); note.rotation.y = Math.PI / 2; note.rotation.z = .08; scene.add(note);
     }
     // windows on outer walls
@@ -487,7 +489,7 @@ function buildWorld() {
     // room signs + lockers
     ROOMS.filter(r => r.f === f).forEach(r => {
       const zs = r.side > 0 ? 2.5 - T - .02 : -2.5 + T + .02;
-      sign(r.name, r.doorX + 2.4, y + 2.9, zs, r.side > 0 ? Math.PI : 0, 2.2, r.type === 'class' ? '#2f6fd6' : r.type === 'toilet' ? '#18b5b5' : r.type === 'staff' ? '#e8412c' : '#1f1a33');
+      sign(TR(r.name), r.doorX + 2.4, y + 2.9, zs, r.side > 0 ? Math.PI : 0, 2.2, r.type === 'class' ? '#2f6fd6' : r.type === 'toilet' ? '#18b5b5' : r.type === 'staff' ? '#e8412c' : '#1f1a33');
       for (let k = -4; k <= -2; k++) {
         const x = r.doorX + k * .7 - .3, z = r.side * 2.2, front = z - r.side * .26;
         rounded(x, y + 0.9, z, .62, 1.8, .5, TM([0x527d9b, 0xb96551, 0x72916a, 0xd2a451][(k + r.i) & 3], LOCKER(), 'locker'));
@@ -508,8 +510,8 @@ function buildWorld() {
     });
     // fire alarm on each floor
     const ax = f ? 3.2 : -9, az = 2.35;
-    box(ax, y + 1.5, az, .4, .5, .15, 0xe8412c); sign('FEUER', ax, y + 2, az - .09, Math.PI, .8, '#e8412c');
-    INTER.push({ x: ax, y, z: az - .6, r: 1.6, label: 'Feueralarm auslösen', key: 'alarm' });
+    box(ax, y + 1.5, az, .4, .5, .15, 0xe8412c); sign(TR('FEUER'), ax, y + 2, az - .09, Math.PI, .8, '#e8412c');
+    INTER.push({ x: ax, y, z: az - .6, r: 1.6, label: TR('Feueralarm auslösen'), key: 'alarm' });
   }
   // stairs ramp
   const len = Math.hypot(RAMP.x1 - RAMP.x0, FH); const ramp = box((RAMP.x0 + RAMP.x1) / 2, FH / 2 - .1, (RAMP.z0 + RAMP.z1) / 2, len, .2, RAMP.z1 - RAMP.z0, 0xa0a0a0);
@@ -520,7 +522,7 @@ function buildWorld() {
   wall(12, 21, RAMP.z1 - .05, RAMP.z1 + .15, 1, 0x999999, 1.1); wall(12.85, 12.95, -12, -7.5, 1, 0x999999, 1.1);
   WALLS.push({ x0: 13, x1: 21, z0: -12, z1: RAMP.z0 - .1, f: 0, maxY: 99 });
   // secret shortcut hole
-  sign('GEHEIME ABKÜRZUNG', -19, FH + 1.2, -6.3, 0, 2.6, '#ffd23f', '#1f1a33');
+  sign(TR('GEHEIME ABKÜRZUNG'), -19, FH + 1.2, -6.3, 0, 2.6, '#ffd23f', '#1f1a33');
   box(-19, FH - .1, HOLE.z0 - .1, 2.2, .25, .1, 0x553311);
   // ---- room contents ----
   let boardI = 0;
@@ -553,7 +555,7 @@ function buildWorld() {
         rounded(x, y + 0.672, zIn(8.76), .48, 0.336, .06, 0xffffff); // raised lid
         rounded(x + .2, y + 0.665, zIn(8.77), .13, 0.035, .05, 0x82b5c9); box(x + .9, y + 1.1, zIn(7.6), .08, 2.2, 2.6, 0x7fb3d5); }
       rounded(r.x1 - 1.5, y + .75, zIn(4), .9, .1, 2.5, 0xffffff);
-      sign(r.f ? 'WC 🚽 OG' : 'WC 🚽 EG', r.cx, y + 2.8, zIn(9.4) - s * .01, s > 0 ? Math.PI : 0, 2.4, '#18b5b5');
+      sign(r.f ? TR('WC 🚽 OG') : TR('WC 🚽 EG'), r.cx, y + 2.8, zIn(9.4) - s * .01, s > 0 ? Math.PI : 0, 2.4, '#18b5b5');
     } else if (r.type === 'library') {
       for (let k = 0; k < 4; k++) {
         const z = zIn(3.5 + k * 1.6);
@@ -569,7 +571,7 @@ function buildWorld() {
         rounded(r.cx, y + 1.78, z, 8, .08, .5, woodMat(0xd49b60));
         WALLS.push({ x0: r.cx - 4, x1: r.cx + 4, z0: z - .25, z1: z + .25, f: r.f });
       }
-      INTER.push({ x: r.cx + 4.8, y, z: zIn(4), r: 1.8, label: 'Spickzettel aus Buch basteln', key: 'item', item: 'spick', cd: 25 });
+      INTER.push({ x: r.cx + 4.8, y, z: zIn(4), r: 1.8, label: TR('Spickzettel aus einem Buch basteln'), key: 'item', item: 'spick', cd: 25 });
     } else if (r.type === 'buffet') {
       rounded(r.cx + 3, y + 0.96, zIn(8.8), 1.6, 1.92, 1, 0xef677b);
       rounded(r.cx + 2.85, y + 1.2, zIn(8.25), .95, 0.96, .05, 0x34576d);
@@ -581,9 +583,9 @@ function buildWorld() {
       rounded(r.cx + 3.57, y + 1.488, zIn(8.25), .2, 0.104, .05, 0xbaffd9);
       rounded(r.cx + 3, y + 0.344, zIn(8.25), .92, 0.24, .08, 0x344b62);
       rounded(r.cx + 3, y + 0.216, zIn(8.18), 1, 0.056, .15, 0xffe7bb);
-      sign('AUTOMAT', r.cx + 3, y + 1.8, zIn(8.27), s > 0 ? Math.PI : 0, 1.2, '#ffd23f', '#1f1a33');
+      sign(TR('AUTOMAT'), r.cx + 3, y + 1.8, zIn(8.27), s > 0 ? Math.PI : 0, 1.2, '#ffd23f', '#1f1a33');
       WALLS.push({ x0: r.cx + 2.2, x1: r.cx + 3.8, z0: Math.min(zIn(8.3), zIn(9.3)), z1: Math.max(zIn(8.3), zIn(9.3)), f: r.f });
-      INTER.push({ x: r.cx + 3, y, z: zIn(7.5), r: 1.8, label: 'Automat (Zufallsitem)', key: 'item', item: 'rand', cd: 20 });
+      INTER.push({ x: r.cx + 3, y, z: zIn(7.5), r: 1.8, label: TR('Automat (zufälliges Item)'), key: 'item', item: 'rand', cd: 20 });
       table(r.cx - 2, y, zIn(5), 5, .74, 1.2, 0xc99a5b);
     } else if (r.type === 'staff') {
       table(r.cx, y, zIn(5.5), 6, .74, 2.4, 0x7a5a32); WALLS.push({ x0: r.cx - 3, x1: r.cx + 3, z0: Math.min(zIn(4.3), zIn(6.7)), z1: Math.max(zIn(4.3), zIn(6.7)), f: r.f });
@@ -592,15 +594,15 @@ function buildWorld() {
       rounded(r.x1 - 1, y + .38, zIn(8.8), .8, .76, .8, woodMat(0xc99a5b));
       rounded(r.x1 - 1, y + 1.01, zIn(8.8), .58, .5, .52, 0x34576d);
       rounded(r.x1 - 1, y + 1.08, zIn(8.51), .3, .1, .04, NEON_CYAN); // coffee machine
-      sign('LEHRERZIMMER – BETRETEN VERBOTEN', r.doorX - 2.6, y + 2.9, s > 0 ? 2.5 - T - .03 : -2.5 + T + .03, s > 0 ? Math.PI : 0, 3.2, '#e8412c');
-      INTER.push({ x: r.cx - 2, y, z: zIn(4), r: 1.6, label: 'Testmappe stehlen', key: 'item', item: 'loesung', cd: 60, risky: 1 });
-      INTER.push({ x: r.cx + 2, y, z: zIn(4), r: 1.6, label: 'Noten manipulieren (+60)', key: 'grades', cd: 90, risky: 1 });
-      INTER.push({ x: r.cx, y, z: zIn(7.4), r: 1.6, label: 'Prüfungskalender lesen', key: 'calendar', risky: 1 });
+      sign(TR('LEHRERZIMMER: ZUTRITT VERBOTEN'), r.doorX - 2.6, y + 2.9, s > 0 ? 2.5 - T - .03 : -2.5 + T + .03, s > 0 ? Math.PI : 0, 3.2, '#e8412c');
+      INTER.push({ x: r.cx - 2, y, z: zIn(4), r: 1.6, label: TR('Testmappe klauen'), key: 'item', item: 'loesung', cd: 60, risky: 1 });
+      INTER.push({ x: r.cx + 2, y, z: zIn(4), r: 1.6, label: TR('Noten ausbessern (+60)'), key: 'grades', cd: 90, risky: 1 });
+      INTER.push({ x: r.cx, y, z: zIn(7.4), r: 1.6, label: TR('Prüfungskalender lesen'), key: 'calendar', risky: 1 });
       [[-2, 4], [0, 4], [2, 4], [-2, 7], [2, 7], [-4.2, 5.5]].forEach(([dx, d]) => STAFFSPOTS.push({ x: r.cx + dx, z: zIn(d), y, ry: d < 5 ? face : face + Math.PI }));
     } else if (r.type === 'office') {
       table(r.cx, y, zIn(7), 3, .74, 1.2, 0x5a3a22, -s); box(r.cx, y + 1.2, zIn(9.3), 2, 1, .06, 0xffd23f);
       WALLS.push({ x0: r.cx - 1.5, x1: r.cx + 1.5, z0: Math.min(zIn(6.4), zIn(7.6)), z1: Math.max(zIn(6.4), zIn(7.6)), f: r.f });
-      INTER.push({ x: r.cx, y, z: zIn(5.6), r: 1.8, label: 'Stempel klauen (Entschuldigung)', key: 'item', item: 'ausrede', cd: 45, risky: 1 });
+      INTER.push({ x: r.cx, y, z: zIn(5.6), r: 1.8, label: TR('Stempel klauen (Entschuldigung)'), key: 'item', item: 'ausrede', cd: 45, risky: 1 });
     }
   });
   // Pots sit beside existing lockers, away from door openings and walking routes.
