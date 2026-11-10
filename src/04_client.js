@@ -1,14 +1,14 @@
 // ---------------- local player ----------------
-const ME = { name: 'Schüler', color: COLORS[0], x: -20, y: 0, z: 0, ry: Math.PI / 2, vy: 0, seat: null, pts: 0, sus: 0, hw: [-1, -1, -1, -1], hf: [0, 0, 0, 0], items: [], rgc: 0, rv: [0, 0, 0], energyT: 0, warned: false, copy: null, cool: {}, pendLate: -1, nach: -1, checked: {}, awayT: 0, awayWarn: 0, tagT: 0, bonus: 0, knowTests: false, day: 0, run: -1, pose: 'idle', poseT: 0, spd: 0 };
+const ME = { name: TR('Schüler'), color: COLORS[0], x: -20, y: 0, z: 0, ry: Math.PI / 2, vy: 0, seat: null, pts: 0, sus: 0, hw: [-1, -1, -1, -1], hf: [0, 0, 0, 0], items: [], rgc: 0, rv: [0, 0, 0], energyT: 0, warned: false, copy: null, cool: {}, pendLate: -1, nach: -1, checked: {}, awayT: 0, awayWarn: 0, tagT: 0, bonus: 0, knowTests: false, day: 0, run: -1, pose: 'idle', poseT: 0, spd: 0 };
 let meCh = null; const remote = new Map(); const tchCh = []; const npcCh = []; const wanCh = []; const WV = WAND.map(() => ({ x: 0, y: -50, z: 0, ry: 0, init: false })); const projs = []; const bananas = new Map();
 let started = false, yaw = -Math.PI / 2, pitch = 0, camDist = 3.6;
 const keys = new Set();
 // ---------------- Einstellungen + Esc-Menü ----------------
-const SET = Object.assign({ sens: 1, fov: 74, vol: 1, inv: false, bob: true }, (() => { try { return JSON.parse(localStorage.getItem('swyf-settings') || '{}'); } catch (e) { return {}; } })());
-function applySettings() { camera.fov = SET.fov; camera.updateProjectionMatrix(); Snd.vol = SET.vol; try { localStorage.setItem('swyf-settings', JSON.stringify(SET)); } catch (e) { } }
+const SET = Object.assign({ sens: 1, fov: 74, vol: 1, inv: false, bob: true, tips: true }, (() => { try { return JSON.parse(localStorage.getItem('swyf-settings') || '{}'); } catch (e) { return {}; } })());
+function applySettings() { $('#help').classList.toggle('mini', !SET.tips); camera.fov = SET.fov; camera.updateProjectionMatrix(); Snd.vol = SET.vol; try { localStorage.setItem('swyf-settings', JSON.stringify(SET)); } catch (e) { } }
 let paused = false;
 function canPause() { return started && G.ph !== 'lobby' && G.ph !== 'detention' && !MG.open; }
-function openPause() { if (paused || !canPause()) return; paused = true; keys.clear(); jumpBuffer = 0; $('#pause').classList.remove('hidden'); $('#pauseSub').textContent = others().length ? 'Die Lehrer warten nicht: im Mehrspieler läuft die Zeit weiter.' : 'Solo: die Zeit ist angehalten.'; if (document.pointerLockElement === canvas) { try { document.exitPointerLock(); } catch (e) { } } setTimeout(() => $('#pResume').focus(), 0); }
+function openPause() { if (paused || !canPause()) return; paused = true; keys.clear(); jumpBuffer = 0; $('#pause').classList.remove('hidden'); $('#pauseSub').textContent = others().length ? TR('Achtung, im Mehrspieler läuft die Zeit weiter.') : TR('Die Zeit ist angehalten.'); if (document.pointerLockElement === canvas) { try { document.exitPointerLock(); } catch (e) { } } setTimeout(() => $('#pResume').focus(), 0); }
 function closePause(lock = true) { if (!paused) return; paused = false; $('#pause').classList.add('hidden'); canvas.focus(); if (lock) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } } }
 let lockLostAt = 0;
 document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== canvas && canPause() && !paused) { lockLostAt = performance.now(); openPause(); } });
@@ -20,6 +20,8 @@ document.addEventListener('pointerlockchange', () => { if (document.pointerLockE
   $('#pResume').addEventListener('click', () => closePause(true));
   $('#pKeys').addEventListener('click', () => $('#pKeyList').classList.toggle('hidden'));
   $('#pLeave').addEventListener('click', () => { location.reload(); });
+  const sl = $('#sLang'); fillLangSelect(sl); sl.addEventListener('change', () => { setLang(sl.value); $('#langNote').classList.toggle('hidden', sl.value === LANG); });
+  $('#langReload').addEventListener('click', () => location.reload());
   $('#pause').addEventListener('mousedown', e => { if (e.target.id === 'pause') closePause(true); });
   applySettings();
 })();
@@ -65,7 +67,7 @@ function toast(txt, k = '', dur = 3200) { const d = document.createElement('div'
 function addPts(n, why) { ME.pts += n; if (n > 0) { Snd.coin(); toast(`+${n} ${why || ''}`, 'good'); } else if (n < 0) { Snd.buzz(); toast(`${n} ${why || ''}`, 'bad'); } }
 function flash(c = 'red', o = .35) { const f = $('#flash'); f.style.background = c; f.style.opacity = o; setTimeout(() => f.style.opacity = 0, 180); }
 function setPose(p, t = 1.2) { ME.pose = p; ME.poseT = t; }
-function subjOf(li) { const L = plan()[li]; return L ? L.s : ''; }
+function subjOf(li) { const L = plan()[li]; return L ? TR(L.s) : ''; }
 function hwOpen(li) { // can this HW still be done?
   const L = plan()[li]; if (!L || !needHW(li)) return false;
   if (ME.checked[li]) return ME.nach === li;
@@ -83,9 +85,9 @@ function teacherSees(i, x, y, z) {
   const t = TV[i]; if (!t || t.rg || !'fsxpwc'.includes(t.st)) return 0; if (Math.abs(t.y - y) > 1.8) return 0;
   const rt = roomAt(t.x, t.z, t.y), rp = roomAt(x, z, y); if (rt.name !== rp.name || rp.type === 'toilet') return 0;
   const P = PERS[TEACH[i].pers]; const dx = x - t.x, dz = z - t.z, d = Math.hypot(dx, dz); const view = P.view * (1 + .07 * (G.day - 1)); if (d > view) return 0;
-  const a = Math.abs(angDiff(t.ry, Math.atan2(dx, dz))); const fov = P.fov * (t.st === 'c' ? .7 : t.st === 'w' ? .8 : 1);
-  if (a > fov / 2 && d > 1.4) return 0;
-  return P.sus * (.4 + .6 * (1 - d / view)) * (1 + .12 * (G.day - 1));
+  const a = Math.abs(angDiff(t.ry, Math.atan2(dx, dz))); const fov = P.fov * 1.15 * (t.st === 'c' ? .75 : t.st === 'w' ? .85 : 1);
+  if (a > fov / 2 && d > 2.1) return 0;
+  return P.sus * (.55 + .45 * (1 - d / view)) * (1 + .12 * (G.day - 1));
 }
 function bestWatcher() { let b = 0, w = -1; TEACH.forEach((_, i) => { const s = teacherSees(i, ME.x, ME.y + .5, ME.z); if (s > b) { b = s; w = i; } }); return [b, w]; }
 function activity() {
@@ -101,38 +103,38 @@ function activity() {
   } else if (G.ph === 'break') { if (r.type === 'hall' && sprint) a = .45; }
   return a;
 }
-function spikeIfSeen(n, why) { const [s, w] = bestWatcher(); if (s > 0) { ME.sus += n * Math.max(.6, s); if (why) toast(why, 'bad'); if (ME.sus >= 100) caught(w); return true; } return false; }
+function spikeIfSeen(n, why) { const [s, w] = bestWatcher(); if (s > 0) { ME.sus += n * 1.3 * Math.max(.7, s); if (why) toast(why, 'bad'); if (ME.sus >= 100) caught(w); return true; } return false; }
 function updateSus(dt) {
   if (!['lesson', 'break'].includes(G.ph)) { ME.sus = Math.max(0, ME.sus - 20 * dt); return; }
   const a = activity(); const [s, w] = bestWatcher(); const g = a * s;
-  if (g > 0) { ME.sus += g * 34 * dt; if (Math.random() < dt * 2) Snd.heart(); }
-  else ME.sus = Math.max(0, ME.sus - 7 * dt);
+  if (g > 0) { ME.sus += g * 48 * dt; if (Math.random() < dt * 2) Snd.heart(); }
+  else ME.sus = Math.max(0, ME.sus - 4.5 * dt); // langsamer vergessen: erwischt wird man jetzt öfter
   if (myRoom().type === 'staff' && s > 0 && !ME.staffWarn) { ME.staffWarn = 1; act('staff', { w }); setTimeout(() => ME.staffWarn = 0, 8000); }
   const gu = wanCh[0]; const cheating = (MG.open && !MG.forced) || ME.copy;
-  if (gu && cheating && !gu.rg && Math.hypot(gu.x - ME.x, gu.z - ME.z) < 3.5 && Math.abs(gu.y - ME.y) < 1.5 && (ME.cool.streber || 0) < performance.now() / 1000) {
-    ME.cool.streber = performance.now() / 1000 + 25; ME.sus = Math.min(97, ME.sus + 30); say(gu, 'HERR LEHRER! DER SCHUMMELT!', 1.6, 3); Snd.huh(); toast('Streber Günther hat dich verpetzt!', 'bad');
+  if (gu && cheating && !gu.rg && Math.hypot(gu.x - ME.x, gu.z - ME.z) < 4.5 && Math.abs(gu.y - ME.y) < 1.5 && (ME.cool.streber || 0) < performance.now() / 1000) {
+    ME.cool.streber = performance.now() / 1000 + 25; ME.sus = Math.min(97, ME.sus + 30); say(gu, TR('Herr Professor, der schummelt!'), 1.6, 3); Snd.huh(); toast(TR('Streber Günther hat dich verpetzt!'), 'bad');
   }
   if (ME.sus > 55 && !ME.warned && w >= 0) { ME.warned = true; act('sus50', { w }); Snd.huh(); }
   if (ME.sus < 30) ME.warned = false;
   if (ME.sus >= 100) caught(w);
 }
 function caught(w, heavy = false) {
-  ME.sus = 38; ME.warned = false; ME.cheatT = 0;
-  if (MG.open && MG.opts && MG.opts.exam) { closeMG(true); toast('SCHULARBEIT ABGENOMMEN! Beim Schummeln erwischt!', 'bad', 4500); addPts(-80, 'Schularbeit: Nicht genügend (Schummeln)'); }
+  ME.sus = 45; ME.warned = false; ME.cheatT = 0;
+  if (MG.open && MG.opts && MG.opts.exam) { closeMG(true); toast(TR('Beim Schummeln erwischt. Die Schularbeit ist weg!'), 'bad', 4500); addPts(-80, TR('Schularbeit: Nicht genügend (Schummeln)')); }
   if (MG.open && !MG.forced) closeMG(true); ME.copy = null;
   const t = TV[w] || { x: ME.x - 1, z: ME.z }; const dx = ME.x - t.x, dz = ME.z - t.z, d = Math.hypot(dx, dz) || 1;
   myRagdoll(dx / d * 7, 7, dz / d * 7, 2.4); Snd.scream(1.1); flash('red', .45);
   act('caught', { w: Math.max(0, w) });
-  if (useItem('ausrede')) { toast('ERWISCHT! ...aber du hast eine gefälschte Entschuldigung. Puh.', 'good', 4000); return; }
-  if (heavy) { toast('ERWISCHT beim Feueralarm!', 'bad'); addPts(-80, 'Direktion!'); return; }
+  if (useItem('ausrede')) { toast(TR('Erwischt! Zum Glück hast du eine gefälschte Entschuldigung dabei.'), 'good', 4000); return; }
+  if (heavy) { toast(TR('Beim Feueralarm erwischt!'), 'bad'); addPts(-80, TR('Ab in die Direktion')); return; }
   const r = Math.random();
-  if (r < .3 && G.ph === 'lesson') { toast('ERWISCHT! Ab an die Tafel!', 'bad', 3500); setTimeout(() => startTafel(), 1800); }
-  else if (r < .55) { toast('ERWISCHT! Strafarbeit!', 'bad'); addPts(-30, 'Strafarbeit'); }
+  if (r < .3 && G.ph === 'lesson') { toast(TR('Erwischt! Ab an die Tafel.'), 'bad', 3500); setTimeout(() => startTafel(), 1800); }
+  else if (r < .55) { toast(TR('Erwischt! Das gibt eine Strafarbeit.'), 'bad'); addPts(-30, TR('Strafarbeit')); }
   else if (r < .8) {
     const li = [0, 1, 2, 3].find(i => needHW(i) && !ME.checked[i] && ME.hw[i] < 0);
-    toast('ERWISCHT! Spontane Hausübungskontrolle!', 'bad');
-    if (li !== undefined) addPts(-40, `${subjOf(li)}-HÜ fehlt`); else toast('...alles da. Lehrer ist enttäuscht.', 'good');
-  } else { toast(ME.items.length ? 'ERWISCHT! Alles wird konfisziert!' : 'ERWISCHT! Eintrag ins Klassenbuch!', 'bad'); ME.items = []; addPts(-15, 'Eintrag'); }
+    toast(TR('Erwischt! Jetzt wird spontan deine Hausübung kontrolliert.'), 'bad');
+    if (li !== undefined) addPts(-40, TR('HÜ in {s} fehlt', { s: subjOf(li) })); else toast(TR('Alles da. Der Lehrer ist fast enttäuscht.'), 'good');
+  } else { toast(ME.items.length ? TR('Erwischt! Deine Sachen werden eingesammelt.') : TR('Erwischt! Das gibt einen Eintrag ins Klassenbuch.'), 'bad'); ME.items = []; addPts(-15, TR('Eintrag')); }
 }
 
 // ---------------- actions by key ----------------
@@ -149,26 +151,28 @@ function frontTarget(maxD) {
 function hwLessons() { return [0, 1, 2, 3].filter(li => hwOpen(li)); }
 function onKey(code) {
   const now = performance.now() / 1000; const cd = (k, s) => { if ((ME.cool[k] || 0) > now) return false; ME.cool[k] = now + s; return true; };
+  if (code === 'KeyT') { SET.tips = !SET.tips; applySettings(); return; }
+  if (introOn() && code !== 'KeyM') return; // Tageskarte: erst loslegen, wenn sie weg ist
   if (meCh.rg && code !== 'KeyH') return;
   switch (code) {
     case 'KeyE': interact(); break;
-    case 'KeyH': { const li = hwLessons().find(i => ME.hw[i] < 0 || i === ME.nach) ?? hwLessons()[0]; if (li === undefined) toast('Gerade keine Hausübung offen.', 'info'); else openHW(li); break; }
-    case 'KeyQ': if (G.ph === 'lesson' && inLessonRoom() && cd('q', 15)) { setPose('raise', 2.5); act('question'); Snd.huh(); toast('„Herr Lehrer, warum ist Wasser nass?"', 'info'); } break;
+    case 'KeyH': { const li = hwLessons().find(i => ME.hw[i] < 0 || i === ME.nach) ?? hwLessons()[0]; if (li === undefined) toast(TR('Du hast gerade keine Hausübung offen.'), 'info'); else openHW(li); break; }
+    case 'KeyQ': if (G.ph === 'lesson' && inLessonRoom() && cd('q', 15)) { setPose('raise', 2.5); act('question'); Snd.huh(); toast(TR('„Herr Professor, warum ist Wasser eigentlich nass?“'), 'info'); } break;
     case 'KeyF': {
       const p = nearestPlayer(2.4, p => hwLessons().some(li => ((p.presence.hw || [])[li] ?? -1) > Math.max(0, ME.hw[li] * 100)));
-      if (!p) { toast('Niemand in der Nähe hat was zum Abschreiben.', 'info'); break; }
+      if (!p) { toast(TR('Hier hat niemand was zum Abschreiben.'), 'info'); break; }
       const li = hwLessons().filter(li => (p.presence.hw[li] ?? -1) > ME.hw[li] * 100).sort((a, b) => a - b)[0];
       ME.copy = { li, from: p.peer, q: p.presence.hw[li] / 100 * .9, t: 3.2, total: 3.2, phone: false, fake: p.presence.hf && p.presence.hf[li] };
-      act('copy', { tg: p.peer, li }); toast(`Schreibe ${subjOf(li)} von ${p.presence.n} ab...`, 'info'); break;
+      act('copy', { tg: p.peer, li }); toast(TR('Du schreibst {s} von {n} ab.', { s: subjOf(li), n: p.presence.n }), 'info'); break;
     }
     case 'KeyV': {
       if (!cd('v', 6)) break;
       const p = nearestPlayer(1.9, p => hwLessons().some(li => ((p.presence.hw || [])[li] ?? -1) > 0));
-      if (!p) { toast('Keiner da zum Beklauen.', 'info'); break; }
+      if (!p) { toast(TR('Da ist keiner, den du beklauen kannst.'), 'info'); break; }
       const li = hwLessons().filter(li => (p.presence.hw[li] ?? -1) > 0).sort((a, b) => p.presence.hw[b] - p.presence.hw[a])[0];
       ME.hw[li] = Math.max(ME.hw[li], p.presence.hw[li] / 100); ME.hf[li] = p.presence.hf ? p.presence.hf[li] : 0;
-      act('steal', { tg: p.peer, li }); Snd.slap(); setPose('point', .6); toast(`${subjOf(li)}-HÜ von ${p.presence.n} geklaut!`, 'good');
-      spikeIfSeen(30, 'Der Lehrer hat den Diebstahl gesehen!'); break;
+      act('steal', { tg: p.peer, li }); Snd.slap(); setPose('point', .6); toast(TR('Du hast {n} die HÜ in {s} geklaut!', { s: subjOf(li), n: p.presence.n }), 'good');
+      spikeIfSeen(30, TR('Der Lehrer hat dich beim Klauen gesehen!')); break;
     }
     case 'KeyG': {
       if (!cd('g', 1.2)) break;
@@ -181,30 +185,30 @@ function onKey(code) {
     case 'KeyR': {
       if (!cd('r', 1.2)) break; const t = frontTarget(1.8); setPose('point', .5); Snd.whoosh();
       if (!t) break; const fx = Math.sin(ME.ry), fz = Math.cos(ME.ry); const v = [fx * 7, 5, fz * 7];
-      if (t.k === 'p') { act('shove', { tg: t.id, v }); Snd.slap(); spikeIfSeen(28, 'Der Lehrer hat das Schubsen gesehen!'); }
+      if (t.k === 'p') { act('shove', { tg: t.id, v }); Snd.slap(); spikeIfSeen(28, TR('Der Lehrer hat das Schubsen gesehen!')); }
       else if (t.k === 'n') { act('npc', { k: t.id, v }); Snd.slap(); spikeIfSeen(20); }
       else if (t.k === 'w') { act('npcW', { k: t.id, v }); Snd.slap(); spikeIfSeen(20); }
-      else if (t.k === 't') { act('shoveT', { w: t.id, v }); Snd.slap(); Snd.scream(.7); toast(`Du hast ${t.name} geschubst. Mutig.`, 'bad'); setTimeout(() => { ME.sus = 100; caught(t.id); }, 1200); }
+      else if (t.k === 't') { act('shoveT', { w: t.id, v }); Snd.slap(); Snd.scream(.7); toast(TR('Du hast {n} geschubst. Das war keine gute Idee.', { n: t.name }), 'bad'); setTimeout(() => { ME.sus = 100; caught(t.id); }, 1200); }
       break;
     }
     case 'KeyX': {
       if (!cd('x', 10)) break;
       let w = -1, bd = 4.5; TV.forEach((t, i) => { const d = Math.hypot(t.x - ME.x, t.z - ME.z); if (d < bd && Math.abs(t.y - ME.y) < 1.5 && !t.rg) { bd = d; w = i; } });
-      if (w < 0) { toast('Kein Lehrer in der Nähe zum Petzen.', 'info'); break; }
+      if (w < 0) { toast(TR('Hier ist kein Lehrer, bei dem du petzen kannst.'), 'info'); break; }
       const vic = others().filter(p => p.presence.n && roomAt(p.presence.x, p.presence.z, p.presence.y).name === myRoom().name).sort((a, b) => (b.presence.sus || 0) - (a.presence.sus || 0))[0];
-      if (!vic) { toast(`${TEACH[w].name}: "Petzen ohne Grund? Frech!"`, 'bad'); ME.sus += 20; break; }
-      act('snitch', { tg: vic.peer, w, tn: vic.presence.n }); ME.tagT = 40; addPts(10, 'Petzen-Bonus'); setPose('point', 1); break;
+      if (!vic) { toast(TR('{n}: „Petzen, wenn gar nichts war? Frech.“', { n: TEACH[w].name }), 'bad'); ME.sus += 20; break; }
+      act('snitch', { tg: vic.peer, w, tn: vic.presence.n }); ME.tagT = 40; addPts(10, TR('fürs Petzen')); setPose('point', 1); break;
     }
     case 'Digit1': case 'Digit2': case 'Digit3': useSlot(+code.slice(5) - 1); break;
-    case 'KeyM': Snd.on = !Snd.on; toast(Snd.on ? 'Ton an' : 'Ton aus', 'info'); break;
+    case 'KeyM': Snd.on = !Snd.on; toast(Snd.on ? TR('Ton an') : TR('Ton aus'), 'info'); break;
   }
 }
 function useSlot(i) {
   const it = ME.items[i]; if (!it) return;
-  if (it === 'energy') { ME.items.splice(i, 1); ME.energyT = 15; Snd.pfft(); toast('ENERGY! Alles ist schnell!', 'good'); setTimeout(() => Snd.burp(), 15000); }
-  else if (it === 'rechner' || it === 'spick') { ME.items.splice(i, 1); ME.bonus = Math.min(.7, ME.bonus + .35); toast(`${ITEMS[it].name} bereit: nächste HÜ/Test +35%`, 'good'); Snd.paper(); }
-  else if (it === 'banane') { ME.items.splice(i, 1); const id = Net.me + ':' + Date.now(); const p = [ME.x - Math.sin(ME.ry) * .9, ME.y, ME.z - Math.cos(ME.ry) * .9]; act('banana', { id, p }); Snd.squeak(); toast('Bananenschale platziert. Hehe.', 'info'); }
-  else toast(`${ITEMS[it].name} wird automatisch benutzt.`, 'info');
+  if (it === 'energy') { ME.items.splice(i, 1); ME.energyT = 15; Snd.pfft(); toast(TR('Energy Drink! Jetzt geht alles schneller.'), 'good'); setTimeout(() => Snd.burp(), 15000); }
+  else if (it === 'rechner' || it === 'spick') { ME.items.splice(i, 1); ME.bonus = Math.min(.7, ME.bonus + .35); toast(TR('{n} ist bereit: nächste HÜ oder nächster Test +35 %', { n: ITEMS[it].name }), 'good'); Snd.paper(); }
+  else if (it === 'banane') { ME.items.splice(i, 1); const id = Net.me + ':' + Date.now(); const p = [ME.x - Math.sin(ME.ry) * .9, ME.y, ME.z - Math.cos(ME.ry) * .9]; act('banana', { id, p }); Snd.squeak(); toast(TR('Bananenschale liegt. Jetzt heißt es warten.'), 'info'); }
+  else toast(TR('{n} wird automatisch benutzt, wenn du es brauchst.', { n: ITEMS[it].name }), 'info');
 }
 function interact() {
   if (ME.seat) { ME.seat = null; Snd.squeak(); return; }
@@ -222,18 +226,18 @@ function nearestSeat() {
 function doInter(it, now) {
   const ck = 'i' + it.label;
   if (it.key === 'alarm') {
-    if ((ME.cool.alarm || 0) > now) { toast('Der Alarm ist noch heiß.', 'info'); return; } ME.cool.alarm = now + 60;
+    if ((ME.cool.alarm || 0) > now) { toast(TR('Den Alarm hat grad erst wer ausgelöst.'), 'info'); return; } ME.cool.alarm = now + 60;
     const [s, w] = bestWatcher(); act('alarm'); setPose('point', .8);
     if (s > 0) setTimeout(() => caught(w, true), 900); return;
   }
-  if ((ME.cool[ck] || 0) > now) { toast(`Noch ${Math.ceil(ME.cool[ck] - now)} s warten.`, 'info'); return; }
+  if ((ME.cool[ck] || 0) > now) { toast(TR('Noch {s} s warten.', { s: Math.ceil(ME.cool[ck] - now) }), 'info'); return; }
   if (it.key === 'item') {
-    if (ME.items.length >= 3) { toast('Rucksack voll (max. 3 Items).', 'info'); return; }
+    if (ME.items.length >= 3) { toast(TR('Dein Rucksack ist voll (höchstens 3 Items).'), 'info'); return; }
     ME.cool[ck] = now + (it.cd || 20);
     const kind = it.item === 'rand' ? pick(['energy', 'energy', 'rechner', 'banane', 'spick']) : it.item; ME.items.push(kind);
-    Snd.pop(); toast(`${ITEMS[kind].icon} ${ITEMS[kind].name}: ${ITEMS[kind].desc}`, 'good', 3800); if (it.risky) spikeIfSeen(25, 'Ein Lehrer hat dich gesehen!');
-  } else if (it.key === 'grades') { ME.cool[ck] = now + it.cd; addPts(60, 'Noten "korrigiert"'); Snd.click(); spikeIfSeen(45, 'Ertappt am Lehrer-PC!'); }
-  else if (it.key === 'calendar') { ME.knowTests = true; Snd.paper(); const n = plan().filter(L => L.test).length; toast(n ? `Kalender: heute ${n} Test(s)! Im Stundenplan markiert.` : 'Kalender: heute keine Tests geplant.', 'info', 4000); spikeIfSeen(15); }
+    Snd.pop(); toast(`${ITEMS[kind].icon} ${ITEMS[kind].name}: ${ITEMS[kind].desc}`, 'good', 3800); if (it.risky) spikeIfSeen(25, TR('Ein Lehrer hat dich gesehen!'));
+  } else if (it.key === 'grades') { ME.cool[ck] = now + it.cd; addPts(60, TR('Noten „korrigiert“')); Snd.click(); spikeIfSeen(45, TR('Am Lehrer-PC ertappt!')); }
+  else if (it.key === 'calendar') { ME.knowTests = true; Snd.paper(); const n = plan().filter(L => L.test).length; toast(n ? TR('Laut Kalender gibt es heute Tests: {n}. Sie sind jetzt im Stundenplan markiert.', { n }) : TR('Laut Kalender gibt es heute keinen Test.'), 'info', 4000); spikeIfSeen(15); }
 }
 function myRagdoll(vx, vy, vz, dur = 2.5) { ME.rgc++; ME.rv = [vx, vy, vz, dur]; ME.seat = null; startRagdoll(meCh, vx, vy, vz, dur); ME.copy = null; if (MG.open && !MG.forced) closeMG(true); }
 
@@ -247,8 +251,8 @@ function updateProjs(dt) {
     if (p.y < g + .1) { p.y = g + .1; P.v.set(P.v.x * .3, Math.abs(P.v.y) * .3, P.v.z * .3); if (P.v.length() < .5) dead = true; }
     const [nx, nz] = collide(p.x, p.z, p.x, p.z, .1, p.y); if (nx !== p.x || nz !== p.z) { p.x = nx; p.z = nz; P.v.x *= -.4; P.v.z *= -.4; }
     if (P.mine && P.t > .08 && !dead) {
-      for (const o of others()) { const c = remote.get(o.peer); if (!c) continue; if (c.ch.J[0].distanceTo(p) < .55 || c.ch.J[1].distanceTo(p) < .5) { dead = true; Snd.paper(); act('note', { tg: o.peer, li: P.li, q: Math.round(P.q * 100), f: P.f }); toast(P.li >= 0 ? `Zettel (${subjOf(P.li)}) an ${o.presence.n} geliefert!` : `Volltreffer: ${o.presence.n}!`, 'good'); break; } }
-      if (!dead) TV.forEach((t, w) => { if (!dead && tchCh[w].J[0].distanceTo(p) < .7) { dead = true; act('hitT', { w }); Snd.boing(); ME.sus += 45; toast(`Du hast ${TEACH[w].name} abgeworfen!`, 'bad'); if (ME.sus >= 100) caught(w); } });
+      for (const o of others()) { const c = remote.get(o.peer); if (!c) continue; if (c.ch.J[0].distanceTo(p) < .55 || c.ch.J[1].distanceTo(p) < .5) { dead = true; Snd.paper(); act('note', { tg: o.peer, li: P.li, q: Math.round(P.q * 100), f: P.f }); toast(P.li >= 0 ? TR('Zettel mit {s} ist bei {n} angekommen!', { s: subjOf(P.li), n: o.presence.n }) : TR('Volltreffer bei {n}!', { n: o.presence.n }), 'good'); break; } }
+      if (!dead) TV.forEach((t, w) => { if (!dead && tchCh[w].J[0].distanceTo(p) < .7) { dead = true; act('hitT', { w }); Snd.boing(); ME.sus += 45; toast(TR('Du hast {n} abgeschossen!', { n: TEACH[w].name }), 'bad'); if (ME.sus >= 100) caught(w); } });
       if (!dead) wanCh.forEach((c, k) => { if (!dead && c.y > -10 && c.J[0].distanceTo(p) < .6) { dead = true; Snd.boing(); act('npcW', { k, v: [P.v.x * .4, 4, P.v.z * .4] }); } });
       if (!dead) npcCh.forEach((c, k) => { if (!dead && c.y > -10 && c.J[0].distanceTo(p) < .55) { dead = true; act('npc', { k, v: [P.v.x * .3, 3, P.v.z * .3] }); } });
     }
@@ -279,23 +283,23 @@ function processLogs() {
 function clientAction(p, x) {
   const mine = x.tg === Net.me && !p.isMe; const n = p.presence.n;
   switch (x.t) {
-    case 'shove': if (mine) { myRagdoll(x.v[0], x.v[1], x.v[2], 2.2); Snd.scream(1.3); toast(`${n} hat dich geschubst!`, 'bad'); } break;
-    case 'steal': if (mine) { ME.hw[x.li] = -1; ME.hf[x.li] = 0; toast(`${n} hat deine ${subjOf(x.li)}-HÜ geklaut!!`, 'bad', 4000); Snd.buzz(); } break;
-    case 'note': if (mine) { Snd.paper(); if (x.li >= 0 && hwOpen(x.li) && x.q / 100 > ME.hw[x.li]) { ME.hw[x.li] = x.q / 100; ME.hf[x.li] = x.f; toast(`${n} hat dir die ${subjOf(x.li)}-HÜ zugeworfen!`, 'good', 4000); } else toast(`${n} hat dich mit Papier abgeworfen.`, 'info'); } break;
-    case 'snitch': if (mine) { ME.sus = Math.min(99, ME.sus + 45); toast(`${n} hat dich VERPETZT!`, 'bad', 4000); Snd.huh(); } break;
-    case 'copy': if (mine) toast(`${n} schreibt von dir ab...`, 'info'); break;
+    case 'shove': if (mine) { myRagdoll(x.v[0], x.v[1], x.v[2], 2.2); Snd.scream(1.3); toast(TR('{n} hat dich geschubst!', { n }), 'bad'); } break;
+    case 'steal': if (mine) { ME.hw[x.li] = -1; ME.hf[x.li] = 0; toast(TR('{n} hat dir die HÜ in {s} geklaut!', { n, s: subjOf(x.li) }), 'bad', 4000); Snd.buzz(); } break;
+    case 'note': if (mine) { Snd.paper(); if (x.li >= 0 && hwOpen(x.li) && x.q / 100 > ME.hw[x.li]) { ME.hw[x.li] = x.q / 100; ME.hf[x.li] = x.f; toast(TR('{n} hat dir die HÜ in {s} zugeworfen!', { n, s: subjOf(x.li) }), 'good', 4000); } else toast(TR('{n} hat dich mit einem Papierknäuel getroffen.', { n }), 'info'); } break;
+    case 'snitch': if (mine) { ME.sus = Math.min(99, ME.sus + 45); toast(TR('{n} hat dich verpetzt!', { n }), 'bad', 4000); Snd.huh(); } break;
+    case 'copy': if (mine) toast(TR('{n} schreibt grad von dir ab.', { n }), 'info'); break;
     case 'throw': if (!p.isMe) spawnProj(x.p, x.v, false); break;
-    case 'npc': { const c = npcCh[x.k]; if (c) { startRagdoll(c, x.v[0], x.v[1], x.v[2], 2.5); if (Math.random() < .5) say(c, pick(['AU!', 'Ey!', 'Mama!', 'Was soll das?!']), 1.5, 2); } break; }
-    case 'npcW': { const c = wanCh[x.k]; if (c) { startRagdoll(c, x.v[0], x.v[1], x.v[2], 2.6); Snd.scream(1.4 + Math.random() * .4); say(c, pick(['AUA!', 'Ich sag\'s meiner Mama!', 'WARUM?!', 'Mein Rücken!', 'Das war mein Lieblingsgesicht!']), 1.5, 2.2); } break; }
+    case 'npc': { const c = npcCh[x.k]; if (c) { startRagdoll(c, x.v[0], x.v[1], x.v[2], 2.5); if (Math.random() < .5) say(c, TR(pick(N_(['Au!', 'Ey!', 'Mama!', 'Was soll das?']))), 1.5, 2); } break; }
+    case 'npcW': { const c = wanCh[x.k]; if (c) { startRagdoll(c, x.v[0], x.v[1], x.v[2], 2.6); Snd.scream(1.4 + Math.random() * .4); say(c, TR(pick(N_(['Aua!', 'Das sag ich meiner Mama!', 'Warum?', 'Mein Rücken!', 'Hey, mein Gesicht!']))), 1.5, 2.2); } break; }
     case 'banana': addBanana(x.id, x.p); break;
     case 'rmB': rmBanana(x.id); break;
   }
 }
 function hostEvent(e) {
   switch (e.t) {
-    case 'wsay': { const c = wanCh[e.k]; if (c) say(c, e.txt, WAND[e.k].role === 'janitor' ? .7 : 1.4, 3); break; }
-    case 'say': { const c = tchCh[e.w]; if (c) say(c, e.txt, TEACH[e.w].pitch, 3.2); break; }
-    case 'toast': toast(e.txt, e.k || 'info', 4500); break;
+    case 'wsay': { const c = wanCh[e.k]; if (c) say(c, e.m ? TR(e.m) : e.txt, WAND[e.k].role === 'janitor' ? .7 : 1.4, 3); break; }
+    case 'say': { const c = tchCh[e.w]; if (c) say(c, e.m ? TR(e.m, e.p) : e.txt, TEACH[e.w].pitch, 3.2); break; }
+    case 'toast': toast(e.m ? TR(e.m, e.p) : e.txt, e.k || 'info', 4500); break;
     case 'ding': Snd.ding(); break;
     case 'bell': Snd.bell(); break;
     case 'pop': Snd.pop(); flash('white', .25); break;
@@ -310,62 +314,62 @@ function hostEvent(e) {
 }
 function onCheck(li) {
   if (ME.day !== G.day) return;
-  if (inLessonRoom()) evalCheck(li, false); else if (myRoom().type !== 'toilet' || true) { ME.pendLate = li; toast('Hausübungskontrolle läuft... und du bist nicht da!', 'bad'); }
+  if (inLessonRoom()) evalCheck(li, false); else if (myRoom().type !== 'toilet' || true) { ME.pendLate = li; toast(TR('Gerade ist Hausübungskontrolle, und du bist nicht da!'), 'bad'); }
 }
 function evalCheck(li, late) {
   if (ME.checked[li]) return; ME.checked[li] = true; ME.pendLate = -1;
   const L = plan()[li]; const P = PERS[TEACH[L.teacher >= 0 ? L.teacher : L.ti].pers];
-  if (late) { if (useItem('ausrede')) toast('Zu spät – aber mit gefälschter Entschuldigung. Respekt.', 'good'); else { addPts(-15, 'zu spät'); act('late'); ME.sus = Math.min(95, ME.sus + 20); } }
-  if (!needHW(li)) { toast('Du hattest heute keine HÜ in ' + L.s + '. Glück gehabt!', 'good'); return; }
+  if (late) { if (useItem('ausrede')) toast(TR('Zu spät, aber du hast eine gefälschte Entschuldigung. Passt.'), 'good'); else { addPts(-15, TR('zu spät')); act('late'); ME.sus = Math.min(95, ME.sus + 20); } }
+  if (!needHW(li)) { toast(TR('In {s} hattest du heute keine HÜ auf. Glück gehabt!', { s: L.s }), 'good'); return; }
   if (L.group) {
     const [q, who] = bestOf(li);
-    if (q >= 0) { addPts(ptsFor(q), `Gruppenarbeit (${GRADE(q)[1]})`); if (who !== ME.name) toast(`${who} hat die ganze Gruppenarbeit gemacht. Du kassierst trotzdem!`, 'info', 4500); return; }
+    if (q >= 0) { addPts(ptsFor(q), TR('Gruppenarbeit ({g})', { g: GRADE(q)[1] })); if (who !== ME.name) toast(TR('{n} hat die ganze Gruppenarbeit allein gemacht. Die Punkte kriegst du trotzdem.', { n: who }), 'info', 4500); return; }
   } else if (ME.hw[li] >= 0) {
     const q = ME.hw[li];
-    if (ME.hf[li] && Math.random() < P.fake) { addPts(-20, 'Erfundene Antworten erkannt!'); toast('„Was soll „Die Antwort ist Käse" bedeuten?!" – Nicht genügend', 'bad', 4500); return; }
-    addPts(ptsFor(q), `${L.s}-HÜ: ${GRADE(q)[1]}${ME.hf[li] ? ' (erfunden, aber geschluckt!)' : ''}`); return;
+    if (ME.hf[li] && Math.random() < P.fake) { addPts(-20, TR('Erfundene Antworten aufgeflogen')); toast(TR('„Was soll ‚Die Antwort ist Käse‘ bitte heißen?“ Nicht genügend.'), 'bad', 4500); return; }
+    addPts(ptsFor(q), ME.hf[li] ? TR('HÜ in {s}: {g} (erfunden, hat aber keiner gemerkt)', { s: L.s, g: GRADE(q)[1] }) : TR('HÜ in {s}: {g}', { s: L.s, g: GRADE(q)[1] })); return;
   }
   // no homework
-  if (useItem('ausrede')) { toast('Keine HÜ... aber die gefälschte Entschuldigung zieht!', 'good'); return; }
-  if (Math.random() < .5) { toast('Keine Hausübung?! AN DIE TAFEL!', 'bad'); setTimeout(() => startTafel(), 1500); }
-  else { ME.nach = li; toast('Keine HÜ! Nachreichen bis Stundenende, sonst Minus!', 'bad', 4500); }
+  if (useItem('ausrede')) { toast(TR('Keine HÜ, aber die gefälschte Entschuldigung zieht!'), 'good'); return; }
+  if (Math.random() < .5) { toast(TR('Keine Hausübung? Dann komm an die Tafel!'), 'bad'); setTimeout(() => startTafel(), 1500); }
+  else { ME.nach = li; toast(TR('Keine HÜ! Gib sie bis zum Stundenende ab, sonst gibt es Minuspunkte.'), 'bad', 4500); }
 }
 function onTest(li) {
   if (ME.day !== G.day) return;
-  if (!inLessonRoom()) { toast(myRoom().type === 'toilet' ? 'Du warst am Klo und hast den Test verpasst. Genial.' : 'Test verpasst. Wo bist du überhaupt?', myRoom().type === 'toilet' ? 'good' : 'bad'); return; }
-  ME.seat = ME.seat; if (useItem('loesung')) { addPts(100, 'Test: Sehr gut (Testlösungen!)'); return; }
-  startMG({ kind: 'quiz', title: 'TEST: ' + plan()[li].s, sub: 'Unangekündigt. Natürlich.', forced: true, test: true, diff: .4 + .25 * (G.day - 1), done: (q, fake) => { const pts = Math.round(90 * q) - (q < .45 ? 25 : 0); addPts(pts, `Test: ${GRADE(q)[1]}`); } });
+  if (!inLessonRoom()) { toast(myRoom().type === 'toilet' ? TR('Du warst am Klo und hast den Test verpasst. Perfektes Timing.') : TR('Du hast den Test verpasst. Wo steckst du eigentlich?'), myRoom().type === 'toilet' ? 'good' : 'bad'); return; }
+  ME.seat = ME.seat; if (useItem('loesung')) { addPts(100, TR('Test: Sehr gut (dank Testlösungen)')); return; }
+  startMG({ kind: 'quiz', title: TR('Test in {s}', { s: plan()[li].s }), sub: TR('Natürlich unangekündigt.'), forced: true, test: true, diff: .4 + .25 * (G.day - 1), done: (q, fake) => { const pts = Math.round(90 * q) - (q < .45 ? 25 : 0); addPts(pts, TR('Test: {g}', { g: GRADE(q)[1] })); } });
 }
 function onSA(li) {
   if (ME.day !== G.day) return; const L = plan()[li];
-  if (!inLessonRoom()) { if (useItem('ausrede')) { toast('Schularbeit verpasst – aber du hast eine Entschuldigung. Nachschreiben irgendwann. Nie.', 'good', 4500); return; } addPts(-60, 'Schularbeit verpasst: Nicht genügend'); return; }
-  if (useItem('loesung')) { addPts(200, `Schularbeit ${L.s}: Sehr gut (gestohlene Lösungen!)`); return; }
-  startMG({ kind: 'exam', title: `📝 SCHULARBEIT: ${L.s}`, sub: 'Schummeln erlaubt. Erwischt werden nicht.', forced: true, test: true, exam: true, diff: .5 + .25 * (G.day - 1),
-    done: (q, fake) => { const [g, gn] = GRADE(q); const pts = Math.round(200 * q) - (q < .45 ? 60 : 0); addPts(pts, `Schularbeit: ${g} (${gn})`); if (g === 1) Snd.fanfare(); } });
+  if (!inLessonRoom()) { if (useItem('ausrede')) { toast(TR('Schularbeit verpasst, aber du bist entschuldigt. Nachschreiben musst du irgendwann. Vielleicht.'), 'good', 4500); return; } addPts(-60, TR('Schularbeit verpasst: Nicht genügend')); return; }
+  if (useItem('loesung')) { addPts(200, TR('Schularbeit in {s}: Sehr gut (mit geklauten Lösungen)', { s: L.s })); return; }
+  startMG({ kind: 'exam', title: TR('📝 Schularbeit in {s}', { s: L.s }), sub: TR('Schummeln geht. Erwischt werden solltest du halt nicht.'), forced: true, test: true, exam: true, diff: .5 + .25 * (G.day - 1),
+    done: (q, fake) => { const [g, gn] = GRADE(q); const pts = Math.round(200 * q) - (q < .45 ? 60 : 0); addPts(pts, TR('Schularbeit: {g} ({n})', { g, n: gn })); if (g === 1) Snd.fanfare(); } });
 }
 function onAlarm(p) {
   Snd.alarm(); flash('red', .5); let n = 0; const iv = setInterval(() => { flash('red', .3); if (++n > 6) clearInterval(iv); }, 500);
-  if (MG.open && MG.test) { closeMG(true); toast('Test abgebrochen! Danke, Feueralarm!', 'good'); }
+  if (MG.open && MG.test) { closeMG(true); toast(TR('Test abgebrochen. Danke, Feueralarm!'), 'good'); }
   if (!meCh.rg) setPose('panic', 4);
   npcCh.forEach(c => { if (c.y > -10 && Math.random() < .6) startRagdoll(c, rnd(-4, 4), 5, rnd(-4, 4), 3); });
-  if (p && p !== Net.me) toast(`${peerName(p)} hat den Feueralarm ausgelöst!`, 'info');
+  if (p && p !== Net.me) toast(TR('{n} hat den Feueralarm ausgelöst!', { n: peerName(p) }), 'info');
 }
-function startTafel() { if (G.ph !== 'lesson' && G.ph !== 'break') return; if (MG.open) closeMG(true); startMG({ kind: 'math', title: 'AN DER TAFEL', sub: 'Die ganze Klasse schaut zu...', forced: true, board: true, diff: .8 + .25 * (G.day - 1), done: (q) => { if (q >= .5) { addPts(25, 'Tafel gemeistert'); } else { addPts(-25, 'Blamage an der Tafel'); Snd.laugh(); } } }); }
+function startTafel() { if (G.ph !== 'lesson' && G.ph !== 'break') return; if (MG.open) closeMG(true); startMG({ kind: 'math', title: TR('An der Tafel'), sub: TR('Die ganze Klasse schaut dir zu.'), forced: true, board: true, diff: .8 + .25 * (G.day - 1), done: (q) => { if (q >= .5) { addPts(25, TR('an der Tafel geschafft')); } else { addPts(-25, TR('an der Tafel blamiert')); Snd.laugh(); } } }); }
 
 // ---------------- homework ----------------
 function openHW(li) {
-  if (!hwOpen(li)) { toast('Diese HÜ kann man nicht mehr machen.', 'info'); return; }
+  if (!hwOpen(li)) { toast(TR('Für diese HÜ ist es schon zu spät.'), 'info'); return; }
   if (MG.open) return; if (meCh.rg) return;
   const L = plan()[li]; const stressN = stressFor(li);
   const others_ = bestOf(li); const phoneOK = others_[0] > 0 && others_[1] !== ME.name;
   startMG({
-    kind: SUBJ[L.s].mg, title: `${SUBJ[L.s].icon} ${L.s}-Hausübung`, sub: `für die ${li + 1}. Stunde${L.group ? ' · Gruppenarbeit' : ''}`, li,
+    kind: SUBJ[L.s].mg, title: `${SUBJ[L.s].icon} ` + TR('Hausübung in {s}', { s: L.s }), sub: TR('für die {n}. Stunde', { n: li + 1 }) + (L.group ? ' · ' + TR('Gruppenarbeit') : ''), li,
     diff: .3 * (G.day - 1) + stressN - (ME.energyT > 0 ? .3 : 0), stress: stressN, phone: phoneOK ? others_ : null,
     done: (q, fake) => {
-      q = clamp(q + (fake ? 0 : ME.bonus), 0, 1); if (!fake && ME.bonus) { toast('Spickzettel/Taschenrechner benutzt!', 'info'); ME.bonus = 0; }
+      q = clamp(q + (fake ? 0 : ME.bonus), 0, 1); if (!fake && ME.bonus) { toast(TR('Spickzettel oder Taschenrechner benutzt!'), 'info'); ME.bonus = 0; }
       if (q > ME.hw[li] || fake) { ME.hw[li] = q; ME.hf[li] = fake ? 1 : 0; }
-      const [g, gn] = GRADE(q); toast(`${L.s}-HÜ fertig: ${g} (${gn})${fake ? ' – komplett erfunden' : ''}`, q >= .6 ? 'good' : 'info');
-      if (ME.nach === li && G.ph === 'lesson' && G.li === li) { ME.nach = -1; addPts(Math.round(ptsFor(q) / 2), 'nachgereicht'); }
+      const [g, gn] = GRADE(q); toast(fake ? TR('HÜ in {s} fertig: {g} ({n}), alles frei erfunden', { s: L.s, g, n: gn }) : TR('HÜ in {s} fertig: {g} ({n})', { s: L.s, g, n: gn }), q >= .6 ? 'good' : 'info');
+      if (ME.nach === li && G.ph === 'lesson' && G.li === li) { ME.nach = -1; addPts(Math.round(ptsFor(q) / 2), TR('nachgereicht')); }
     }
   });
 }
@@ -409,7 +413,7 @@ function updateRemote(dt, t) {
     const pd = Math.hypot(pr[0] - ch.x, pr[2] - ch.z); if (pd > 6) { ch.x = q.x; ch.z = q.z; ch.y = q.y; }
     ch.x = lerp(ch.x, pr[0], k); ch.y = lerp(ch.y, pr[1], k); ch.z = lerp(ch.z, pr[2], k); ch.ry = lerpAng(ch.ry, q.ry, k);
     ch.pose = q.po || 'idle'; ch.spd = q.sp || 0; ch.ph += dt * ch.spd * 2.4;
-    setLabel(ch.tag, q.n + (q.tag ? ' 🐀PETZE' : ''));
+    setLabel(ch.tag, q.n + (q.tag ? ' 🐀' + TR('PETZE') : ''));
     ch.g.visible = ch.shadow.visible = true;
     renderChar(ch, t, dt);
   });
@@ -447,11 +451,11 @@ function updateMe(dt, t) {
   if (ME.cheatT > 0) ME.cheatT -= dt;
   if (ME.tagT > 0) ME.tagT -= dt;
   if (ME.poseT > 0) { ME.poseT -= dt; if (ME.poseT <= 0) ME.pose = 'idle'; }
-  let mx = 0, mz = 0; const busy = MG.open || meCh.rg || G.ph === 'detention';
+  let mx = 0, mz = 0; const busy = MG.open || meCh.rg || G.ph === 'detention' || introOn();
   if (!busy) { if (keys.has('KeyW') || keys.has('ArrowUp')) mz += 1; if (keys.has('KeyS') || keys.has('ArrowDown')) mz -= 1; if (keys.has('KeyA') || keys.has('ArrowLeft')) mx += 1; if (keys.has('KeyD') || keys.has('ArrowRight')) mx -= 1; }
   if (busy || ME.seat) { jumpBuffer = 0; coyoteTime = 0; }
   if ((mx || mz) && ME.seat) { ME.seat = null; Snd.squeak(); }
-  if (ME.copy && (mx || mz)) { ME.copy = null; toast('Abschreiben abgebrochen.', 'info'); }
+  if (ME.copy && (mx || mz)) { ME.copy = null; toast(TR('Abschreiben abgebrochen.'), 'info'); }
   const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
   let speed = (sprint ? 8.5 : 5.0) * (ME.energyT > 0 ? 1.6 : 1);
   if (meCh.rg) {
@@ -488,18 +492,18 @@ function updateMe(dt, t) {
   }
   if (!ME.seat && !meCh.rg && !busy) ME.ry = lerpAng(ME.ry, Math.atan2(-Math.sin(yaw), -Math.cos(yaw)), 1 - Math.exp(-30 * dt));
   if (ME.y < -5) { ME.x = -20; ME.z = 0; ME.y = 0; }
-  if (ME.x < -22.9 && Math.abs(ME.z) < 1.5 && ME.y < 1 && (ME.soonT || 0) < t) { ME.soonT = t + 6; toast('Der Schulhof ist noch zu: COMING SOON', 'info'); Snd.huh(); }
+  if (ME.x < -22.9 && Math.abs(ME.z) < 1.5 && ME.y < 1 && (ME.soonT || 0) < t) { ME.soonT = t + 6; toast(TR('Der Schulhof ist wegen Bauarbeiten gesperrt.'), 'info'); Snd.huh(); }
   if (ME.x < -24.2) { ME.x = -22.5; ME.z = clamp(ME.z, -1.5, 1.5); } // falls man doch rausrutscht (Ragdoll)
   // copy progress
   if (ME.copy) {
     ME.copy.t -= dt; setPose(ME.copy.phone ? 'phone' : 'write', .3);
-    if (ME.copy.t <= 0) { const c = ME.copy; ME.copy = null; if (hwOpen(c.li) && c.q > ME.hw[c.li]) { ME.hw[c.li] = c.q; ME.hf[c.li] = c.fake ? 1 : 0; } toast(`${subjOf(c.li)} abgeschrieben (${GRADE(c.q)[1]}). Leicht umformuliert.`, 'good'); Snd.paper(); if (ME.nach === c.li && G.li === c.li) { ME.nach = -1; addPts(Math.round(ptsFor(c.q) / 2), 'nachgereicht'); } }
+    if (ME.copy.t <= 0) { const c = ME.copy; ME.copy = null; if (hwOpen(c.li) && c.q > ME.hw[c.li]) { ME.hw[c.li] = c.q; ME.hf[c.li] = c.fake ? 1 : 0; } toast(TR('{s} abgeschrieben ({g}) und ein bisschen umformuliert.', { s: subjOf(c.li), g: GRADE(c.q)[1] }), 'good'); Snd.paper(); if (ME.nach === c.li && G.li === c.li) { ME.nach = -1; addPts(Math.round(ptsFor(c.q) / 2), TR('nachgereicht')); } }
   }
   meCh.x = ME.x; meCh.y = ME.y; meCh.z = ME.z; meCh.ry = ME.ry; meCh.spd = ME.spd; meCh.ph += dt * ME.spd * 2.4;
   meCh.pose = ME.pose !== 'idle' ? ME.pose : MG.open ? 'write' : ME.seat ? 'sit' : 'idle';
   if (ME.seat && (ME.pose === 'write' || ME.pose === 'phone')) meCh.pose = 'sit';
   if (ME.seat && MG.open) meCh.pose = 'sit';
-  setLabel(meCh.tag, ME.tagT > 0 ? '🐀PETZE' : '');
+  setLabel(meCh.tag, ME.tagT > 0 ? '🐀' + TR('PETZE') : '');
   renderChar(meCh, t, dt);
   if (meCh.pose === 'sit' && (MG.open || ME.copy)) { meCh.limbs[0].position.z += 0; }
   // late arrival & absence
@@ -508,8 +512,8 @@ function updateMe(dt, t) {
     const L = curL();
     if (L && L.teacher >= 0 && !inLessonRoom() && gEl(performance.now()) > 15) {
       ME.awayT += dt;
-      if (ME.awayT > 50 && ME.awayWarn === 0) { ME.awayWarn = 1; act('away'); toast(`${TEACH[L.teacher].name} fragt, wo du bist...`, 'bad'); }
-      if (ME.awayT > 100 && ME.awayWarn === 1) { ME.awayWarn = 2; if (!useItem('ausrede')) addPts(-30, 'Schwänzen!'); }
+      if (ME.awayT > 50 && ME.awayWarn === 0) { ME.awayWarn = 1; act('away'); toast(TR('{n} fragt schon, wo du bist.', { n: TEACH[L.teacher].name }), 'bad'); }
+      if (ME.awayT > 100 && ME.awayWarn === 1) { ME.awayWarn = 2; if (!useItem('ausrede')) addPts(-30, TR('geschwänzt')); }
     } else if (inLessonRoom()) { ME.awayT = Math.max(0, ME.awayT - dt * 2); if (ME.awayT < 20) ME.awayWarn = 0; }
   }
 }
@@ -533,11 +537,11 @@ function updateWaypoint(t) {
   WP = null;
   const L = curL(); if (!L || !['break', 'lesson'].includes(G.ph) || G.ph === 'detention') { wpArrow.visible = false; return; }
   const ri = lessonRoomIdx(L, gEl(performance.now())); const R = ROOMS[ri]; if (!R || inLessonRoom()) { wpArrow.visible = false; return; }
-  const myF = floorOf(ME.y + .2); let tgt, label = `${R.name} (${R.f ? 'OG' : 'EG'})`;
+  const myF = floorOf(ME.y + .2); let tgt, label = `${TR(R.name)} (${R.f ? TR('OG') : TR('EG')})`;
   if (myF !== R.f) {
     const inStairs = ME.x > 12 && ME.z < -2.5;
     if (!inStairs) tgt = { x: 18, y: myF * FH, z: -2.2 }; else tgt = myF === 0 ? { x: 13.4, y: 0, z: -9.5 } : { x: 21.5, y: FH, z: -9.5 };
-    label = `Stiege → ${label}`;
+    label = `${TR('Stiege')} → ${label}`;
   } else tgt = { x: R.doorX, y: R.y, z: R.side * 3.6 };
   WP = { ...tgt, label, d: Math.hypot(tgt.x - ME.x, tgt.z - ME.z) };
   wpArrow.visible = true; wpArrow.position.set(tgt.x, tgt.y + 2.6 + Math.sin(t * 4) * .2, tgt.z); wpArrow.rotation.y = t * 2;

@@ -31,14 +31,15 @@ const WAND = [
   { n: 'Kevin-Pascal', col: 0x2fbf71, hair: 0x111111, hat: 3 }, { n: 'Schorsch', col: 0x8d5a2b, hair: 0xd35400, hat: 4 },
   { n: 'Lisa-Marie', col: 0x9b59b6, hair: 0xf5d76e, hat: 1 }, { n: 'Ömer', col: 0x18b5b5, hair: 0x111111, hat: 2 },
 ];
-const WSAY = {
-  any: ['Hat wer die Mathe-HÜ?', 'Ich hab Hunger.', 'Wer hat meinen Turnbeutel?!', 'Brrrrrmmm brrrm.', 'Morgen ist Test??', 'Ich bin eigentlich in der 4C.', 'Kennst du den Hausmeister? Der ist komisch.', 'Ich hab seit 3 Tagen nicht geschlafen.', 'Wo ist das Klo?', 'Hehehe.', 'Ich schwänze. Psst.'],
-  streber: ['Ich hab die Hausübung DOPPELT gemacht.', 'Ich sehe ALLES.', 'Herr Professor, Sie haben vergessen die HÜ zu kontrollieren!', 'Schummeln ist unmoralisch.'],
-  janitor: ['Wer hat da wieder hingespuckt?', 'Nicht auf den nassen Boden!', 'Ich putz das nicht nochmal.', 'Früher war hier alles besser.'],
-};
+const WSAY = N_({
+  any: ['Hat wer die Mathe-HÜ?', 'Ich hab so einen Hunger.', 'Wer hat meinen Turnbeutel?', 'Brrrm brrrm.', 'Moment, morgen ist Test?', 'Ich bin eigentlich in der 4C.', 'Der Hausmeister ist irgendwie komisch, oder?', 'Ich hab seit drei Tagen nicht geschlafen.', 'Wo ist das Klo?', 'Hehe.', 'Psst, ich schwänz grad.'],
+  streber: ['Ich hab die Hausübung zweimal gemacht.', 'Ich seh alles.', 'Herr Professor, Sie haben die HÜ noch nicht kontrolliert!', 'Schummeln ist unfair.'],
+  janitor: ['Wer hat da schon wieder hingespuckt?', 'Nicht auf den nassen Boden!', 'Ich putz das sicher nicht nochmal.', 'Früher war hier alles besser.'],
+});
 
 const Net = { room: null, me: 'local', solo: true, peers: [], connected: false };
-const G = { saEvery: 3, ph: 'lobby', day: 1, seed: 1, li: 0, rem: 0, dur: 180, el: 0, goal: 0, tp: 0, ev: [], es: 0, T: [], run: 0, res: null, np: 1, alarms: 0 };
+const INTRO_S = 3.2; // so lange bleibt die Tageskarte stehen
+const G = { saEvery: 3, intro: 0, ph: 'lobby', day: 1, seed: 1, li: 0, rem: 0, dur: 180, el: 0, goal: 0, tp: 0, ev: [], es: 0, T: [], run: 0, res: null, np: 1, alarms: 0 };
 let gRecv = 0, lastHost = null, lastSeenG = null;
 async function netJoin(code) {
   try {
@@ -74,7 +75,10 @@ function syncG(now) {
   if (g && g !== syncG.lastObj) { syncG.lastObj = g; Object.assign(G, g); gRecv = now; lastSeenG = g; }
   lastHost = hid;
 }
-function gRem(now) { return isHost() ? G.rem : G.rem - (now - gRecv) / 1000; }
+// Während die Tageskarte zu sehen ist (G.intro), steht die Uhr still.
+function gIntro(now = performance.now()) { return isHost() ? G.intro : G.intro - (now - gRecv) / 1000; }
+function gRem(now) { return isHost() ? G.rem : G.rem - Math.max(0, (now - gRecv) / 1000 - Math.max(0, G.intro || 0)); }
+const introOn = () => gIntro() > 0;
 function gEl(now) { return isHost() ? G.el : G.el + (now - gRecv) / 1000; }
 
 // ---------------- host simulation ----------------
@@ -98,13 +102,15 @@ function hostWanderTick(dt) {
         w.path = route(w, dest); w.st = 'w';
       }
     }
-    if (Math.random() < dt * .025) { const role = WAND[w.k].role; hev('wsay', { k: w.k, txt: pick(role ? WSAY[role] : WSAY.any) }); }
+    if (Math.random() < dt * .025) { const role = WAND[w.k].role; hev('wsay', { k: w.k, m: pick(role ? WSAY[role] : WSAY.any) }); }
   });
   G.W = H.wan.map(w => [+w.x.toFixed(1), +w.y.toFixed(1), +w.z.toFixed(1), +w.ry.toFixed(1), w.st]);
 }
 function hostAdopt() { if (!H.tch.length) hostInitTeachers(); if (G.W && G.W.length) H.wan = G.W.map((a, k) => ({ k, x: a[0], y: a[1], z: a[2], ry: a[3], path: [], tmr: 1, st: 'i', spd: rnd(1.8, 2.6) })); if (G.T && G.T.length) G.T.forEach((a, i) => { const t = H.tch[i]; if (t) { t.x = a[0]; t.y = a[1]; t.z = a[2]; t.ry = a[3]; t.path = []; t.zone = ''; } }); H.checkDone = H.testDone = H.revealDone = H.startDone = -1; if (G.ph === 'lesson') { H.checkDone = G.li; H.startDone = G.li; } }
 function hev(t, d = {}) { G.es = (G.es || 0) + 1; G.ev = [...(G.ev || []).slice(-9), Object.assign({ s: G.es, t }, d)]; }
-function hsay(w, key, o) { const txt = Array.isArray(key) ? pick(key) : fillSay(pick(SAY[key]), o); hev('say', { w, txt }); }
+// Gesendet wird der deutsche Text als Schlüssel plus Platzhalter: jeder Client zeigt ihn in seiner Sprache an.
+function hsay(w, key, o) { const m = Array.isArray(key) ? pick(key) : pick(SAY[key]); hev('say', o ? { w, m, p: o } : { w, m }); }
+function htoast(m, k, p) { hev('toast', p ? { m, k, p } : { m, k }); }
 function doorOut(r) { return [r.doorX, r.y, r.side * 1.3]; }
 function doorIn(r) { return [r.doorX, r.y, r.side * 3.2]; }
 function route(from, to) {
@@ -175,7 +181,7 @@ function hostTeacherTick(dt) {
 function lerpAng(a, b, t) { return a + angDiff(a, b) * t; }
 function nPlayers() { return Math.max(1, allPlayers().filter(p => p.presence && p.presence.n).length); }
 function hostBeginDay(day) {
-  G.day = day; G.ph = 'break'; G.li = 0; G.rem = 45; G.el = 0; G.alarms = 0; G.res = null; planKey = '';
+  G.day = day; G.ph = 'break'; G.li = 0; G.rem = 45; G.intro = INTRO_S; G.el = 0; G.alarms = 0; G.res = null; planKey = '';
   H.checkDone = H.testDone = H.revealDone = H.startDone = -1; H.caught = 0; H.repeated = false;
   hev('day', { day });
 }
@@ -186,7 +192,8 @@ function hostEndLesson() {
 function hostTick(dt) {
   if (!H.tch.length) hostInitTeachers();
   // process actions of everybody (host role)
-  if (G.ph !== 'lobby') { G.rem -= dt; G.el += dt; }
+  if (G.intro > 0) G.intro = Math.max(0, G.intro - dt);
+  else if (G.ph !== 'lobby') { G.rem -= dt; G.el += dt; }
   G.np = nPlayers();
   G.tp = allPlayers().reduce((s, p) => s + ((p.presence && p.presence.day === G.day && p.presence.run === G.run && p.presence.pts) || 0), 0);
   G.goal = Math.round(G.np * (150 + 70 * (G.day - 1)));
@@ -197,19 +204,19 @@ function hostTick(dt) {
     const t = L.teacher >= 0 ? H.tch[L.teacher] : null;
     if (H.startDone !== G.li) {
       H.startDone = G.li;
-      if (L.ev === 'absent') hev('toast', { txt: `${TEACH[L.ti].name} ist nicht da. FREISTUNDE!`, k: 'good' });
-      if (L.ev === 'supplier') hev('toast', { txt: `Supplierstunde! ${TEACH[SUP].name} vertritt ${TEACH[L.ti].name}.`, k: 'info' });
-      if (L.ev === 'director') hev('toast', { txt: 'Der Direktor sitzt heute hinten in der Klasse...', k: 'bad' });
+      if (L.ev === 'absent') htoast(N_('{t} ist heute nicht da. Freistunde!'), 'good', { t: TEACH[L.ti].name });
+      if (L.ev === 'supplier') htoast(N_('Supplierstunde: {s} vertritt {t}.'), 'info', { s: TEACH[SUP].name, t: TEACH[L.ti].name });
+      if (L.ev === 'director') htoast(N_('Heute sitzt der Direktor hinten in der Klasse.'), 'bad');
     }
-    if (L.ev === 'wrongroom' && H.revealDone !== G.li && G.el >= 6) { H.revealDone = G.li; hev('toast', { txt: `📢 Durchsage: ${TEACH[L.teacher].name} unterrichtet heute in ${ROOMS[L.real].name}! Lauft!`, k: 'bad' }); hev('ding'); }
+    if (L.ev === 'wrongroom' && H.revealDone !== G.li && G.el >= 6) { H.revealDone = G.li; htoast(N_('📢 Durchsage: {t} unterrichtet heute im Raum {r}. Beeilt euch!'), 'bad', { t: TEACH[L.teacher].name, r: ROOMS[L.real].name }); hev('ding'); }
     const ready = t && !t.path.length && t.st !== 'w' && roomAt(t.x, t.z, t.y).i === lessonRoomIdx(L, G.el);
     if (H.checkDone !== G.li && t && ready && G.el > (L.ev === 'wrongroom' ? 22 : 9)) {
       H.checkDone = G.li;
-      if (L.forget) { hev('toast', { txt: `${TEACH[L.teacher].name} hat die Hausübungskontrolle vergessen!`, k: 'good' }); hsay(L.teacher, ['Hausübung? Ach... egal.', 'Wo waren wir? Ich hab vergessen was ich wollte.']); }
+      if (L.forget) { htoast(N_('{t} hat auf die Hausübungskontrolle vergessen!'), 'good', { t: TEACH[L.teacher].name }); hsay(L.teacher, N_(['Hausübung? Ach, egal.', 'Wo waren wir? Ich weiß nicht mehr, was ich wollte.'])); }
       else { hsay(L.teacher, 'check'); hev('check', { li: G.li }); }
     }
-    if (L.sa && H.testDone !== G.li && G.el > 18 && G.rem > 30 && (!t || ready)) { H.testDone = G.li; hev('sa', { li: G.li }); hev('toast', { txt: `SCHULARBEIT ${L.s.toUpperCase()}! Hefte weg, Handys weg (haha).`, k: 'bad' }); if (t) hsay(L.teacher, ['Schularbeit. Wer schummelt, kriegt einen Fünfer.', 'Ich habe Augen am Hinterkopf.', 'Blatt umdrehen. Jetzt.']); }
-    if (L.test && H.testDone !== G.li && G.el > G.dur * .5 && G.rem > 25) { H.testDone = G.li; hev('test', { li: G.li }); hev('toast', { txt: 'UNANGEKÜNDIGTER TEST! Hefte weg!', k: 'bad' }); if (t) hsay(L.teacher, ['Überraschung! Test!', 'Zettel raus. Test. Jetzt.']); }
+    if (L.sa && H.testDone !== G.li && G.el > 18 && G.rem > 30 && (!t || ready)) { H.testDone = G.li; hev('sa', { li: G.li }); htoast(N_('Schularbeit in {s}! Hefte weg, Handys weg (als ob).'), 'bad', { s: L.s }); if (t) hsay(L.teacher, N_(['Schularbeit. Wer schummelt, kriegt einen Fünfer.', 'Ich hab Augen am Hinterkopf, nur dass ihr\'s wisst.', 'Ihr dürft das Blatt jetzt umdrehen.'])); }
+    if (L.test && H.testDone !== G.li && G.el > G.dur * .5 && G.rem > 25) { H.testDone = G.li; hev('test', { li: G.li }); htoast(N_('Unangekündigter Test! Hefte weg!'), 'bad'); if (t) hsay(L.teacher, N_(['Überraschung, wir schreiben einen Test!', 'Nehmt einen Zettel raus, wir machen einen Test.'])); }
     if (L.ev === 'alarm' && H.testDone !== 100 + G.li && G.el > G.dur * .7) { H.testDone = 100 + G.li; hostAlarm(null); return; }
     if (G.rem <= 0) hostEndLesson();
   } else if (G.ph === 'dayEnd' && G.rem <= 0) {
@@ -226,7 +233,7 @@ function hostTick(dt) {
 }
 function hostAlarm(peer) {
   hev('alarm', { p: peer || '' });
-  if (G.ph === 'lesson' && G.alarms < 2) { G.alarms++; hev('toast', { txt: 'FEUERALARM! Stunde abgebrochen!', k: 'bad' }); hostEndLesson(); }
+  if (G.ph === 'lesson' && G.alarms < 2) { G.alarms++; htoast(N_('Feueralarm! Die Stunde ist vorbei.'), 'bad'); hostEndLesson(); }
 }
 function hostAction(from, a) {
   const L = plan()[G.li]; const name = from.presence.n;
@@ -234,12 +241,12 @@ function hostAction(from, a) {
     case 'start': if (G.ph === 'lobby' || G.ph === 'detention') { G.dur = clamp(+a.dur || 180, 60, 400); G.saEvery = clamp(Math.round(+a.sa), 0, 7); if (isNaN(G.saEvery)) G.saEvery = 3; G.run++; G.seed = Math.floor(Math.random() * 1e9); hostBeginDay(1); } break;
     case 'sus50': { const t = H.tch[a.w]; if (t && !t.path.length && t.rg <= 0) { t.st = 'x'; t.tmr = 2.2; t.ry = Math.atan2(from.presence.x - t.x, from.presence.z - t.z); hsay(a.w, 'sus', { n: name }); } break; }
     case 'caught': { const t = H.tch[a.w]; if (t && t.rg <= 0) { t.st = 'x'; t.tmr = 2.5; t.path = []; t.ry = Math.atan2(from.presence.x - t.x, from.presence.z - t.z); hsay(a.w, 'caught', { n: name }); }
-      if (G.ph === 'lesson') { H.caught++; if (!H.repeated && H.caught >= Math.max(2, Math.ceil(G.np / 2))) { H.repeated = true; G.rem += G.dur * .4; hev('toast', { txt: 'STUNDENWIEDERHOLUNG! Das machen wir nochmal!', k: 'bad' }); } } break; }
+      if (G.ph === 'lesson') { H.caught++; if (!H.repeated && H.caught >= Math.max(2, Math.ceil(G.np / 2))) { H.repeated = true; G.rem += G.dur * .4; htoast(N_('Zu viele erwischt. Die Stunde wird verlängert!'), 'bad'); } } break; }
     case 'question': {
       const t = L && L.teacher >= 0 ? H.tch[L.teacher] : null;
       if (G.ph === 'lesson' && t && H.qcd <= 0 && t.rg <= 0) {
         H.qcd = 18;
-        if (Math.random() < .22) { hsay(L.teacher, [`Gute Frage, ${name}. Komm an die Tafel!`, `${name}, erklär du es uns doch!`]); hev('tafel', { p: from.peer }); t.ry = Math.atan2(from.presence.x - t.x, from.presence.z - t.z); t.st = 'x'; t.tmr = 4; }
+        if (Math.random() < .22) { hsay(L.teacher, N_(['Gute Frage, {n}. Komm an die Tafel!', '{n}, erklär du\'s uns doch!']), { n: name }); hev('tafel', { p: from.peer }); t.ry = Math.atan2(from.presence.x - t.x, from.presence.z - t.z); t.st = 'x'; t.tmr = 4; }
         else { const F = FRONT[lessonRoomIdx(L, G.el)]; if (F) { goTo(t, { x: F.board.x, y: t.y, z: F.board.z }, 'q' + Math.random(), 'b', F.boardRy, rnd(8, 11)); } hsay(L.teacher, 'question'); }
       } break;
     }
@@ -251,6 +258,6 @@ function hostAction(from, a) {
     case 'staff': { if (H.tch[a.w]) hsay(a.w, 'staff'); break; }
     case 'banana': H.bananas.push({ id: a.id, x: a.p[0], y: a.p[1], z: a.p[2] }); break;
     case 'rmB': H.bananas = H.bananas.filter(b => b.id !== a.id); break;
-    case 'away': { if (L && L.teacher >= 0) hsay(L.teacher, [`Wo ist ${name}?!`, `${name} ist schon ewig am Klo...`]); break; }
+    case 'away': { if (L && L.teacher >= 0) hsay(L.teacher, N_(['Wo ist {n}?', 'Ist {n} schon wieder so lang am Klo?']), { n: name }); break; }
   }
 }

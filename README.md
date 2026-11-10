@@ -23,6 +23,10 @@ Die Apps sind noch nicht signiert:
 - **macOS:** Beim ersten Start meldet Gatekeeper „App ist beschädigt“ oder „nicht verifizierter Entwickler“. Lösung: App in „Programme“ ziehen, dann im Terminal `xattr -dr com.apple.quarantine "/Applications/School With Your Friends.app"` ausführen (oder Rechtsklick → Öffnen bzw. Systemeinstellungen → Datenschutz & Sicherheit → „Trotzdem öffnen“).
 - **Windows:** SmartScreen warnt „Der Computer wurde durch Windows geschützt“. Auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken.
 
+## Sprachen
+
+Das Spiel gibt es auf Deutsch, Englisch, Spanisch, Französisch, Italienisch, Portugiesisch, Polnisch, Türkisch, Russisch und Japanisch. Die Sprache stellt man in der Lobby (🌐 Sprache) oder im Esc-Menü um. Beim ersten Start wird die Sprache des Systems genommen.
+
 ## Schularbeiten
 
 Alle paar Tage (in der Lobby einstellbar) ist die 3. Stunde eine Schularbeit. Im Test kann man beim Nachbarn abschauen, das Handy unterm Tisch benutzen oder einen Spickzettel ziehen. Wer dabei vom Lehrer gesehen wird, riskiert, dass die Schularbeit abgenommen wird.
@@ -33,7 +37,7 @@ Alle paar Tage (in der Lobby einstellbar) ist die 3. Stunde eine Schularbeit. Im
 |---|---|
 | WASD / Shift / Space | Laufen / Rennen / Springen |
 | Maus (Klick) | Umsehen (Ego-Perspektive; beim Ragdoll geht die Kamera kurz nach hinten) |
-| Esc | Menü mit Einstellungen (Maus, FOV, Lautstärke) |
+| Esc | Menü mit Einstellungen (Maus, FOV, Lautstärke, Sprache) |
 | E | Hinsetzen, benutzen (Automat, Feueralarm, Lehrerzimmer ...) |
 | H | Hausübung machen |
 | F / V | Abschreiben / HÜ stehlen |
@@ -46,8 +50,18 @@ Alle paar Tage (in der Lobby einstellbar) ist die 3. Stunde eine Schularbeit. Im
 
 Der Quellcode liegt in `src/`. `./build.sh` setzt daraus `index.html` zusammen.
 
+Deutsch ist die Quellsprache: Jeder Text steht im Code auf Deutsch in `TR('...')` (bzw. `N_()`/`TA()` für Daten-Listen) und ist gleichzeitig sein eigener Schlüssel. Nach einer Textänderung:
+
+```
+node tools/i18n.js check        # was fehlt in welcher Sprache?
+node tools/i18n.js todo en      # fehlende Texte nach /tmp/i18n-todo-en.txt
+node tools/i18n.js merge en f   # Übersetzungen (eine Zeile pro Text) übernehmen
+```
+
 | Datei | Inhalt |
 |---|---|
+| `src/00_i18n.js` | Sprachauswahl und Übersetzungsfunktion `TR()` |
+| `src/i18n/*.json` | Übersetzungen (deutscher Text → Übersetzung) |
 | `src/01_head.html` | HTML, CSS, HUD, Lobby |
 | `src/02_core.js` | Daten, Sounds (WebAudio), Schulgebäude, Figuren und Ragdolls |
 | `src/03_net_host.js` | Stundenplan, Netzwerk, Host-Simulation (Lehrer-KI, NPCs, Zeit) |
@@ -67,6 +81,10 @@ npm run dist:win   # .exe (am besten auf Windows)
 ```
 
 Der Workflow `.github/workflows/desktop.yml` baut beide Apps auf GitHub Actions (macOS mit Apple Silicon und Windows) und hängt sie an das Release, sobald der Release-Workflow es angelegt hat. Bei Pull Requests werden sie nur gebaut und liegen unter „Artifacts“ zum Testen bereit.
+
+## Credits
+
+Die Möbelmodelle stammen aus dem [Furniture Kit von Kenney](https://www.kenney.nl) (CC0). `node tools/models.js` wandelt die `.glb`-Dateien aus `assets/kenney-furniture/` in `src/01b_models.js` um.
 
 ## Versionen und Releases
 
