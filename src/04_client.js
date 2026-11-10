@@ -545,17 +545,17 @@ function updateCamera(dt) {
 const handScene = new THREE.Scene(), handCam = new THREE.PerspectiveCamera(62, 1, .01, 10);
 handScene.add(new THREE.HemisphereLight(0xfff4ff, 0x7a5aa8, 1.05)); { const l = new THREE.DirectionalLight(0xfff0e0, .45); l.position.set(1, 2, 1.5); handScene.add(l); }
 function makeGlove(sd) {
-  const g = new THREE.Group(), w = M(0xffffff), wd = M(0xe9e4f2);
+  // Runder Fäustling: ein Fingerblob statt einzelner Finger, kein Nähte-Gruseln.
+  const g = new THREE.Group(), w = M(0xfff8f0), wd = M(0xf1e6f5);
   const palm = new THREE.Group(); g.add(palm);
-  ball(0, 0, 0, .17, .12, .19, w, palm);
-  [-.055, 0, .055].forEach((x, i) => { const f = ball(x * sd, .015, -.15 - (i === 1 ? .015 : 0), .06, .06, .16, w, palm); f.rotation.x = -.15; });
-  const th = ball(-.1 * sd, -.005, -.04, .06, .06, .13, w, palm); th.rotation.y = .7 * sd;
-  [-.055, 0].forEach(x => box(x * sd + .027 * sd, .06, -.05, .006, .003, .07, M(0x6a5a90), palm)); // Handschuh-Nähte
-  const cuff = new THREE.Mesh(TOR, wd); cuff.scale.set(.26, .26, .5); cuff.position.z = .11; palm.add(cuff);
-  ball(0, 0, .12, .2, .16, .08, wd, palm);
-  const sleeve = new THREE.Mesh(CYL, M(new THREE.Color(ME.color).getHex())); sleeve.rotation.x = Math.PI / 2; sleeve.scale.set(.17, .4, .17); sleeve.position.z = .34; palm.add(sleeve);
-  ball(0, 0, .16, .19, .19, .06, M(new THREE.Color(ME.color).multiplyScalar(.8).getHex()), palm);
-  g.scale.setScalar(.68); handScene.add(g); g.userData = { sd, palm, sleeve, p: new THREE.Vector3(), r: new THREE.Euler() }; return g;
+  ball(0, 0, 0, .19, .14, .2, w, palm);
+  const mit = ball(0, -.005, -.13, .19, .13, .17, w, palm); mit.rotation.x = .25;
+  ball(.002 * sd, -.035, -.2, .17, .1, .09, w, palm); // eingerollte Fingerspitzen
+  const th = ball(-.105 * sd, .01, -.06, .08, .075, .11, w, palm); th.rotation.y = .5 * sd;
+  const cuff = new THREE.Mesh(TOR, wd); cuff.scale.set(.27, .27, .55); cuff.position.z = .12; palm.add(cuff);
+  ball(0, 0, .13, .21, .17, .08, wd, palm);
+  const sleeve = new THREE.Mesh(CYL, M(new THREE.Color(ME.color).getHex())); sleeve.rotation.x = Math.PI / 2; sleeve.scale.set(.18, .36, .18); sleeve.position.z = .32; palm.add(sleeve);
+  g.scale.setScalar(.6); handScene.add(g); g.userData = { sd, palm, sleeve, p: new THREE.Vector3(), r: new THREE.Euler() }; return g;
 }
 let hands = null, phone = null;
 function initHands() {
@@ -574,7 +574,7 @@ function updateHands(dt, t) {
   if (ME.throwT > 0) ME.throwT -= dt;
   hands.forEach((h, i) => {
     const sd = h.userData.sd, swing = Math.sin(ph + i * Math.PI);
-    let x = .25 * sd, y = -.25 - Math.abs(Math.cos(ph)) * .025 * k + Math.sin(t * 2) * .006, z = -.58 + swing * .05 * k, rx = .25, ry = -.12 * sd, rz = .1 * sd;
+    let x = .28 * sd, y = -.31 - Math.abs(Math.cos(ph)) * .02 * k + Math.sin(t * 2) * .005, z = -.6 + swing * .04 * k, rx = .45, ry = -.18 * sd, rz = .15 * sd;
     if (ME.seat) { y -= .04; z -= .03; }
     if (pose === 'write') { x = .14 * sd; y = -.36; z = -.5; rx = .9; ry = 0; if (i === 0) { x += Math.sin(t * 24) * .015; z += Math.cos(t * 17) * .01; } }
     if (pose === 'phone' && i === 1) { x = -.1; y = -.24; z = -.5; rx = .7; ry = .1; rz = 0; }

@@ -327,7 +327,7 @@ function cTex(key, w, h, draw, rep) { return texCache[key] || (texCache[key] = c
 function texMat(key, w, h, draw, rep) { return TM(0xffffff, cTex(key, w, h, draw, rep), key); }
 const hex = c => '#' + new THREE.Color(c).getHexString();
 function shade(c, f) { const col = new THREE.Color(c); col.multiplyScalar(f); return '#' + col.getHexString(); }
-function noiseFill(g, w, h, base, amt = 14, n = 900) { g.fillStyle = base; g.fillRect(0, 0, w, h); for (let i = 0; i < n; i++) { const v = (Math.random() - .5) * amt; g.fillStyle = v > 0 ? `rgba(255,255,255,${v / 100})` : `rgba(0,0,0,${-v / 100})`; g.fillRect(Math.random() * w, Math.random() * h, i % 3 ? 1 : 3, i % 3 ? 1 : 3); } }
+function noiseFill(g, w, h, base, amt = 14, n = 900) { amt *= .3; n = Math.floor(n * .4); g.fillStyle = base; g.fillRect(0, 0, w, h); for (let i = 0; i < n; i++) { const v = (Math.random() - .5) * amt; g.fillStyle = v > 0 ? `rgba(255,255,255,${v / 100})` : `rgba(0,0,0,${-v / 100})`; g.fillRect(Math.random() * w, Math.random() * h, i % 3 ? 1 : 3, i % 3 ? 1 : 3); } }
 const SHIRTS = ['stripes', 'dots', 'number', 'star', 'hoodie', 'check', 'zigzag', 'plain'];
 function shirtTex(col, kind, seed) {
   return cTex('shirt' + col + kind + seed, 256, 128, (g, w, h) => {
@@ -416,20 +416,15 @@ function roomAt(x, z, y) {
 // --- colliders ---
 const WALLS = []; // {x0,x1,z0,z1,f,maxY?}
 const camBlockers = [];
-const wallMatFor = t => ({ class: 0x63d6b8, toilet: 0x5fc8ff, staff: 0xff6f8e, office: 0xc58cff, library: 0xffb85c, buffet: 0xffd04a, stairs: 0x9aa7ff }[t] || 0xffc9a0);
+const wallMatFor = t => ({ class: 0x8fe0c8, toilet: 0x8fd6ff, staff: 0xff9cb0, office: 0xd2b0ff, library: 0xffc98a, buffet: 0xffdf80, stairs: 0xb6beff }[t] || 0xffd6b4);
 // Tapete: helles Muster, das per Materialfarbe eingefärbt wird. Unten Holzvertäfelung, oben Streifen + Rauten.
-const WALLTEX = () => cTex('wallpaper', 256, 256, (g, w, h) => {
-  noiseFill(g, w, h, '#fbf7f2', 10, 2500);
-  const top = h * .64;
-  for (let x = 0; x < w; x += 32) { g.fillStyle = 'rgba(70,30,90,.10)'; g.fillRect(x, 0, 16, top); }
-  g.fillStyle = 'rgba(90,30,110,.22)';
-  for (let y = 18; y < top - 8; y += 40) for (let x = 16; x <= w; x += 32) { const yy = y + (x / 32 % 2) * 20; if (yy > top - 10) continue; g.beginPath(); g.moveTo(x, yy - 8); g.lineTo(x + 6, yy); g.lineTo(x, yy + 8); g.lineTo(x - 6, yy); g.closePath(); g.fill(); }
-  g.fillStyle = 'rgba(255,255,255,.55)'; for (let y = 18; y < top - 8; y += 40) for (let x = 16; x <= w; x += 32) { const yy = y + (x / 32 % 2) * 20; if (yy > top - 10) continue; g.fillRect(x - 1, yy - 1, 2, 2); }
-  // Vertäfelung
-  g.fillStyle = 'rgba(60,20,40,.42)'; g.fillRect(0, top, w, h - top);
-  g.strokeStyle = 'rgba(255,240,220,.35)'; g.lineWidth = 3; for (let x = 8; x < w; x += 64) g.strokeRect(x, top + 16, 48, h - top - 34);
-  g.fillStyle = 'rgba(40,10,30,.55)'; g.fillRect(0, top - 4, w, 9); g.fillRect(0, h - 12, w, 12);
-  g.fillStyle = 'rgba(255,230,180,.5)'; g.fillRect(0, top - 4, w, 2);
+const WALLTEX = () => cTex('wallpaper2', 256, 256, (g, w, h) => {
+  const top = h * .64; g.fillStyle = '#fbf6f2'; g.fillRect(0, 0, w, h);
+  for (let x = 0; x < w; x += 32) { g.fillStyle = 'rgba(80,40,100,.07)'; g.fillRect(x, 0, 16, top); }
+  g.fillStyle = 'rgba(255,255,255,.55)'; for (let y = 24; y < top - 12; y += 48) for (let x = 24; x < w; x += 32) { g.beginPath(); g.arc(x, y + (x / 32 % 2) * 24, 3, 0, 7); g.fill(); }
+  g.fillStyle = 'rgba(70,30,60,.28)'; g.fillRect(0, top, w, h - top);
+  g.strokeStyle = 'rgba(255,245,235,.35)'; g.lineWidth = 2; for (let x = 8; x < w; x += 64) { g.beginPath(); g.roundRect ? g.roundRect(x, top + 16, 48, h - top - 34, 6) : g.rect(x, top + 16, 48, h - top - 34); g.stroke(); }
+  g.fillStyle = 'rgba(255,250,240,.9)'; g.fillRect(0, top - 5, w, 7); g.fillStyle = 'rgba(70,30,60,.25)'; g.fillRect(0, top + 2, w, 2); g.fillRect(0, h - 10, w, 10);
 }, [1, 1]);
 // Box mit Welt-UVs: das Muster wird nicht gestreckt, egal wie lang die Wand ist.
 function worldBoxGeo(w, h, d, tile = 2.4, vt = WH) {
@@ -473,32 +468,25 @@ function woodDraw(g, w, h) {
 const WOOD = () => cTex('woodFurniture', 256, 256, woodDraw);
 const woodMat = col => TM(col, WOOD(), 'woodFurniture');
 // Gemusterte Teppiche: dunkle Basis, Rautengitter, bunte Konfetti-Formen (Casino-Flur trifft Schulgang).
+// Teppich: ruhige Basis, weiches Rautengitter, große runde Punkte. Sauber statt Konfetti-Chaos.
 function carpetDraw(base, line, cols, seed) { return (g, w, h) => {
-  noiseFill(g, w, h, base, 18, 3000); const r = mulberry(seed);
-  g.strokeStyle = line; g.lineWidth = 5;
-  for (let k = -w; k < w * 2; k += w / 4) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + h, h); g.moveTo(k + h, 0); g.lineTo(k, h); g.stroke(); }
-  for (let y = 0; y <= h; y += h / 4) for (let x = 0; x <= w; x += w / 4) { g.fillStyle = cols[((x + y) / (w / 4)) % cols.length | 0]; g.beginPath(); g.moveTo(x, y - 11); g.lineTo(x + 11, y); g.lineTo(x, y + 11); g.lineTo(x - 11, y); g.closePath(); g.fill(); }
-  for (let i = 0; i < 26; i++) {
-    const x = r() * w, y = r() * h, c = cols[i % cols.length]; g.save(); g.translate(x, y); g.rotate(r() * 6.28); g.fillStyle = c; g.strokeStyle = c; g.lineWidth = 4; g.lineCap = 'round';
-    const k = i % 4;
-    if (k === 0) { g.beginPath(); g.arc(0, 0, 5, 0, 7); g.fill(); }
-    else if (k === 1) { g.beginPath(); g.moveTo(0, -7); g.lineTo(7, 6); g.lineTo(-7, 6); g.closePath(); g.fill(); }
-    else if (k === 2) { g.beginPath(); g.moveTo(-10, 0); g.bezierCurveTo(-5, -8, 0, 8, 5, 0); g.bezierCurveTo(8, -5, 10, -2, 12, 0); g.stroke(); }
-    else { g.beginPath(); g.arc(0, 0, 6, 0, 7); g.lineWidth = 3; g.stroke(); }
-    g.restore();
-  }
+  g.fillStyle = base; g.fillRect(0, 0, w, h); const q = w / 4;
+  g.fillStyle = line;
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { if ((x + y) % 2) continue; g.beginPath(); g.moveTo(x * q + q / 2, y * q + 4); g.lineTo(x * q + q - 4, y * q + q / 2); g.lineTo(x * q + q / 2, y * q + q - 4); g.lineTo(x * q + 4, y * q + q / 2); g.closePath(); g.fill(); }
+  for (let y = 0; y <= 4; y++) for (let x = 0; x <= 4; x++) { g.fillStyle = cols[(x + y * 2 + seed) % cols.length]; g.beginPath(); g.arc(x * q, y * q, 7, 0, 7); g.fill(); }
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { if (!((x + y) % 2)) continue; g.fillStyle = cols[(x + seed) % cols.length]; g.globalAlpha = .55; g.beginPath(); g.arc(x * q + q / 2, y * q + q / 2, 4, 0, 7); g.fill(); g.globalAlpha = 1; }
 }; }
-const texLino = texMat('hallCarpet', 256, 256, carpetDraw('#3b1f6b', 'rgba(255,120,220,.28)', ['#3ff0e0', '#ff5fb0', '#ffd23f', '#8a7bff'], 11), [16, 1.7]);
+const texLino = texMat('hallCarpet', 256, 256, carpetDraw('#46307a', 'rgba(130,100,200,.55)', ['#5fe3d8', '#ff7fc0', '#ffd666'], 1), [20, 2.1]);
 const texWood = TM(0xe0a060, cTex('woodFloor', 256, 256, woodDraw, [4, 3]), 'woodFloor');
 const texTile = texMat('tile', 256, 256, (g, w, h) => {
   checker('#ffffff', '#3fd0d8')(g, w, h); const q = w / 2;
   for (let y = 0; y < h; y += q) for (let x = 0; x < w; x += q) { g.fillStyle = (x + y) / q % 2 ? 'rgba(255,255,255,.35)' : 'rgba(0,60,80,.15)'; g.beginPath(); g.moveTo(x + q / 2, y + 12); g.lineTo(x + q - 12, y + q / 2); g.lineTo(x + q / 2, y + q - 12); g.lineTo(x + 12, y + q / 2); g.closePath(); g.fill(); }
   g.strokeStyle = 'rgba(30,60,70,.35)'; g.lineWidth = 3; for (let k = 0; k <= w; k += q) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k, h); g.moveTo(0, k); g.lineTo(w, k); g.stroke(); }
 }, [8, 6]);
-const texCarpet = texMat('carpet', 256, 256, carpetDraw('#8a1f3a', 'rgba(255,200,90,.38)', ['#ffd23f', '#ff8f5a', '#ffe7bb'], 23), [5, 4]);
-const texCarpetOffice = texMat('carpetOffice', 256, 256, carpetDraw('#163f5c', 'rgba(120,255,230,.3)', ['#3ff0e0', '#c58cff', '#ffd23f'], 37), [5, 4]);
+const texCarpet = texMat('carpet', 256, 256, carpetDraw('#9a3050', 'rgba(200,90,110,.6)', ['#ffd666', '#ffb08a'], 0), [5, 4]);
+const texCarpetOffice = texMat('carpetOffice', 256, 256, carpetDraw('#245a72', 'rgba(70,140,160,.6)', ['#7ff0e0', '#d0a8ff'], 0), [5, 4]);
 const texCeil = texMat('ceil', 128, 128, (g, w, h) => {
-  noiseFill(g, w, h, '#f4ecff', 10, 900); g.strokeStyle = 'rgba(80,60,120,.35)'; g.lineWidth = 3; g.strokeRect(1, 1, w - 2, h - 2);
+  noiseFill(g, w, h, '#f4ecff', 10, 900); g.strokeStyle = 'rgba(80,60,120,.14)'; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
   g.fillStyle = 'rgba(80,60,120,.12)'; for (let i = 0; i < 60; i++) g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
 }, [1, 1]);
 const LIGHTM = new THREE.MeshBasicMaterial({ color: 0xfff4dc }), NEON_PINK = new THREE.MeshBasicMaterial({ color: 0xff4fb8 }), NEON_CYAN = new THREE.MeshBasicMaterial({ color: 0x3ff0e0 }), NEON_YEL = new THREE.MeshBasicMaterial({ color: 0xffd23f });
@@ -596,7 +584,7 @@ function buildWorld() {
     for (let x = -21; x <= 21; x += 4) db(x, y + WH - .03, 0, 1.6, .05, .6, LIGHTM);
     [[2.5 - T - .04, NEON_PINK], [-2.5 + T + .04, NEON_CYAN]].forEach(([z, mt]) => { db(0, y + WH - .1, z, 48, .06, .06, mt); });
     // outer walls
-    const ow = 0xffb070;
+    const ow = 0xffc48c;
     wall(-24, 24, 12 - T, 12 + T, f, ow); wall(-24, 24, -12 - T, -12 + T, f, ow); wall(24 - T, 24 + T, -12, 12, f, ow);
     if (f === 0) wallWithDoors('z', -24, -12, 12, 0, [0], ow, 1.3); else wall(-24 - T, -24 + T, -12, 12, f, ow);
     // windows on outer walls
@@ -604,7 +592,7 @@ function buildWorld() {
     [-8.5, -4.5, 4.5, 8.5].forEach(z => { windowDeco(-24.17, y + 2, z, true); windowDeco(24.17, y + 2, z, true); });
     // hallway walls with doors
     const doorsN = ROOMS.filter(r => r.f === f && r.side > 0).map(r => r.doorX), doorsS = ROOMS.filter(r => r.f === f && r.side < 0).map(r => r.doorX);
-    const hc = f ? 0xb48cff : 0xff8fc4; wallWithDoors('x', 2.5, -24, 24, f, doorsN, hc); wallWithDoors('x', -2.5, -24, 24, f, doorsS, hc);
+    const hc = f ? 0xc9b0ff : 0xffb3d6; wallWithDoors('x', 2.5, -24, 24, f, doorsN, hc); wallWithDoors('x', -2.5, -24, 24, f, doorsS, hc);
     [-12, 0, 12].forEach(x => { wall(x - T, x + T, 2.5, 12, f, 0xffd9a8); wall(x - T, x + T, -12, -2.5, f, 0xffd9a8); });
     // room signs + lockers
     ROOMS.filter(r => r.f === f).forEach(r => {
@@ -1699,17 +1687,17 @@ function updateCamera(dt) {
 const handScene = new THREE.Scene(), handCam = new THREE.PerspectiveCamera(62, 1, .01, 10);
 handScene.add(new THREE.HemisphereLight(0xfff4ff, 0x7a5aa8, 1.05)); { const l = new THREE.DirectionalLight(0xfff0e0, .45); l.position.set(1, 2, 1.5); handScene.add(l); }
 function makeGlove(sd) {
-  const g = new THREE.Group(), w = M(0xffffff), wd = M(0xe9e4f2);
+  // Runder Fäustling: ein Fingerblob statt einzelner Finger, kein Nähte-Gruseln.
+  const g = new THREE.Group(), w = M(0xfff8f0), wd = M(0xf1e6f5);
   const palm = new THREE.Group(); g.add(palm);
-  ball(0, 0, 0, .17, .12, .19, w, palm);
-  [-.055, 0, .055].forEach((x, i) => { const f = ball(x * sd, .015, -.15 - (i === 1 ? .015 : 0), .06, .06, .16, w, palm); f.rotation.x = -.15; });
-  const th = ball(-.1 * sd, -.005, -.04, .06, .06, .13, w, palm); th.rotation.y = .7 * sd;
-  [-.055, 0].forEach(x => box(x * sd + .027 * sd, .06, -.05, .006, .003, .07, M(0x6a5a90), palm)); // Handschuh-Nähte
-  const cuff = new THREE.Mesh(TOR, wd); cuff.scale.set(.26, .26, .5); cuff.position.z = .11; palm.add(cuff);
-  ball(0, 0, .12, .2, .16, .08, wd, palm);
-  const sleeve = new THREE.Mesh(CYL, M(new THREE.Color(ME.color).getHex())); sleeve.rotation.x = Math.PI / 2; sleeve.scale.set(.17, .4, .17); sleeve.position.z = .34; palm.add(sleeve);
-  ball(0, 0, .16, .19, .19, .06, M(new THREE.Color(ME.color).multiplyScalar(.8).getHex()), palm);
-  g.scale.setScalar(.68); handScene.add(g); g.userData = { sd, palm, sleeve, p: new THREE.Vector3(), r: new THREE.Euler() }; return g;
+  ball(0, 0, 0, .19, .14, .2, w, palm);
+  const mit = ball(0, -.005, -.13, .19, .13, .17, w, palm); mit.rotation.x = .25;
+  ball(.002 * sd, -.035, -.2, .17, .1, .09, w, palm); // eingerollte Fingerspitzen
+  const th = ball(-.105 * sd, .01, -.06, .08, .075, .11, w, palm); th.rotation.y = .5 * sd;
+  const cuff = new THREE.Mesh(TOR, wd); cuff.scale.set(.27, .27, .55); cuff.position.z = .12; palm.add(cuff);
+  ball(0, 0, .13, .21, .17, .08, wd, palm);
+  const sleeve = new THREE.Mesh(CYL, M(new THREE.Color(ME.color).getHex())); sleeve.rotation.x = Math.PI / 2; sleeve.scale.set(.18, .36, .18); sleeve.position.z = .32; palm.add(sleeve);
+  g.scale.setScalar(.6); handScene.add(g); g.userData = { sd, palm, sleeve, p: new THREE.Vector3(), r: new THREE.Euler() }; return g;
 }
 let hands = null, phone = null;
 function initHands() {
@@ -1728,7 +1716,7 @@ function updateHands(dt, t) {
   if (ME.throwT > 0) ME.throwT -= dt;
   hands.forEach((h, i) => {
     const sd = h.userData.sd, swing = Math.sin(ph + i * Math.PI);
-    let x = .25 * sd, y = -.25 - Math.abs(Math.cos(ph)) * .025 * k + Math.sin(t * 2) * .006, z = -.58 + swing * .05 * k, rx = .25, ry = -.12 * sd, rz = .1 * sd;
+    let x = .28 * sd, y = -.31 - Math.abs(Math.cos(ph)) * .02 * k + Math.sin(t * 2) * .005, z = -.6 + swing * .04 * k, rx = .45, ry = -.18 * sd, rz = .15 * sd;
     if (ME.seat) { y -= .04; z -= .03; }
     if (pose === 'write') { x = .14 * sd; y = -.36; z = -.5; rx = .9; ry = 0; if (i === 0) { x += Math.sin(t * 24) * .015; z += Math.cos(t * 17) * .01; } }
     if (pose === 'phone' && i === 1) { x = -.1; y = -.24; z = -.5; rx = .7; ry = .1; rz = 0; }
