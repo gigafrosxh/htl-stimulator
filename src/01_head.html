@@ -41,6 +41,7 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
 
 /* ---------- HUD ---------- */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+#xhair{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#fffdf2;box-shadow:0 0 0 2px var(--ink),0 0 10px 2px rgba(255,79,184,.8)}
 #plan{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:12px;width:300px;padding:8px 10px;transform:rotate(-1.2deg);pointer-events:auto}
 #plan h3{margin:0 0 4px;font-family:var(--f-display);font-weight:400;font-size:18px;color:var(--blue)}
 .lrow{display:grid;grid-template-columns:22px 1fr auto;gap:6px;align-items:center;padding:3px 4px;border-radius:4px;font-size:15px;line-height:1.1;cursor:pointer}
@@ -155,6 +156,7 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
   <div id="score" class="paper"><div style="font-size:14px">Klassen-Punkte</div><div class="big"><span id="teamPts">0</span> / <span id="goalPts">0</span></div><div class="bar"><i id="goalBar"></i></div><div style="font-size:14px;margin-top:3px">Du: <span id="myPts">0</span></div></div>
   <div id="netState"></div>
   <div id="toasts"></div>
+  <div id="xhair"></div>
   <div id="prompt"></div>
   <div id="wp" hidden><span id="wpArrow">⬆</span><span id="wpText"></span></div>
   <div id="lockHint" hidden>Klick ins Bild, um mit der Maus zu schauen (Esc gibt sie wieder frei)</div>

@@ -116,11 +116,20 @@ const canvas = $('#c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x9fd3ff);
-scene.fog = new THREE.Fog(0x9fd3ff, 40, 110);
-const camera = new THREE.PerspectiveCamera(68, 1, 0.1, 300);
-scene.add(new THREE.HemisphereLight(0xfff6e0, 0x6a6a8a, 0.85));
-const sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(20, 40, 15); scene.add(sun);
+// Bonbon-Abendhimmel: kräftig, warm, leicht lila. Alles darunter wird lila-warm ausgeleuchtet.
+scene.background = new THREE.Color(0xe9a7d6);
+scene.fog = new THREE.Fog(0xe9a7d6, 45, 125);
+const camera = new THREE.PerspectiveCamera(74, 1, 0.05, 300);
+scene.add(camera); // Kamera-Kinder (z. B. Effekte) brauchen die Kamera im Graph
+scene.add(new THREE.HemisphereLight(0xfff0ff, 0x5b3d86, 0.95));
+const sun = new THREE.DirectionalLight(0xffe2c4, 0.5); sun.position.set(20, 40, 15); scene.add(sun);
+const sky = (() => {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 256; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#4b3bd6'); gr.addColorStop(.38, '#a768ff'); gr.addColorStop(.62, '#ff8fd0'); gr.addColorStop(.8, '#ffc38a'); gr.addColorStop(1, '#e9a7d6');
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+  const m = new THREE.Mesh(new THREE.SphereGeometry(200, 24, 12), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), side: THREE.BackSide, fog: false, depthWrite: false }));
+  m.renderOrder = -1; scene.add(m); return m;
+})();
 function onResize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener('resize', onResize); onResize();
 
@@ -141,7 +150,7 @@ function cTex(key, w, h, draw, rep) { return texCache[key] || (texCache[key] = c
 function texMat(key, w, h, draw, rep) { return TM(0xffffff, cTex(key, w, h, draw, rep), key); }
 const hex = c => '#' + new THREE.Color(c).getHexString();
 function shade(c, f) { const col = new THREE.Color(c); col.multiplyScalar(f); return '#' + col.getHexString(); }
-function noiseFill(g, w, h, base, amt = 14, n = 900) { g.fillStyle = base; g.fillRect(0, 0, w, h); for (let i = 0; i < n; i++) { const v = (Math.random() - .5) * amt; g.fillStyle = v > 0 ? `rgba(255,255,255,${v / 100})` : `rgba(0,0,0,${-v / 100})`; g.fillRect(Math.random() * w, Math.random() * h, i % 3 ? 1 : 3, i % 3 ? 1 : 3); } }
+function noiseFill(g, w, h, base, amt = 14, n = 900) { amt *= .3; n = Math.floor(n * .4); g.fillStyle = base; g.fillRect(0, 0, w, h); for (let i = 0; i < n; i++) { const v = (Math.random() - .5) * amt; g.fillStyle = v > 0 ? `rgba(255,255,255,${v / 100})` : `rgba(0,0,0,${-v / 100})`; g.fillRect(Math.random() * w, Math.random() * h, i % 3 ? 1 : 3, i % 3 ? 1 : 3); } }
 const SHIRTS = ['stripes', 'dots', 'number', 'star', 'hoodie', 'check', 'zigzag', 'plain'];
 function shirtTex(col, kind, seed) {
   return cTex('shirt' + col + kind + seed, 256, 128, (g, w, h) => {
@@ -230,21 +239,28 @@ function roomAt(x, z, y) {
 // --- colliders ---
 const WALLS = []; // {x0,x1,z0,z1,f,maxY?}
 const camBlockers = [];
-const wallMatFor = t => ({ class: 0xd9ecd4, toilet: 0xcfe3f0, staff: 0xf0dcc0, office: 0xe6d0e8, library: 0xeee2c4, buffet: 0xffe0b0, stairs: 0xdcdcdc }[t] || 0xe8e4d4);
-const WALLTEX = () => cTex('wall', 256, 256, (g, w, h) => {
-  noiseFill(g, w, h, '#faf9f4', 18, 6500);
-  g.fillStyle = 'rgba(60,80,70,.28)'; g.fillRect(0, h * .62, w, h * .38);
-  g.fillStyle = 'rgba(40,50,45,.55)'; g.fillRect(0, h * .61, w, 5); g.fillRect(0, h - 10, w, 10);
-  const r = mulberry(442); g.strokeStyle = 'rgba(60,50,40,.16)';
-  for (let i = 0; i < 45; i++) { const x = r() * w, y = 160 + r() * 85; g.beginPath(); g.moveTo(x, y); g.lineTo(x + r() * 12, y - r() * 4); g.stroke(); }
-  g.fillStyle = '#e7dbab'; g.fillRect(154, 53, 35, 47); g.fillStyle = '#566b65'; g.font = 'bold 8px sans-serif'; g.fillText('KEIN', 158, 66); g.fillText('BOOM!', 156, 78);
-  g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(165, 50, 12, 6);
-  g.strokeStyle = '#687a8a'; g.beginPath(); g.arc(60, 181, 10, 0, 7); g.moveTo(54, 184); g.quadraticCurveTo(60, 191, 66, 184); g.stroke();
-  g.fillStyle = '#687a8a'; g.fillRect(55, 178, 2, 2); g.fillRect(63, 178, 2, 2);
-});
+const wallMatFor = t => ({ class: 0x8fe0c8, toilet: 0x8fd6ff, staff: 0xff9cb0, office: 0xd2b0ff, library: 0xffc98a, buffet: 0xffdf80, stairs: 0xb6beff }[t] || 0xffd6b4);
+// Tapete: helles Muster, das per Materialfarbe eingefärbt wird. Unten Holzvertäfelung, oben Streifen + Rauten.
+const WALLTEX = () => cTex('wallpaper2', 256, 256, (g, w, h) => {
+  const top = h * .64; g.fillStyle = '#fbf6f2'; g.fillRect(0, 0, w, h);
+  for (let x = 0; x < w; x += 32) { g.fillStyle = 'rgba(80,40,100,.07)'; g.fillRect(x, 0, 16, top); }
+  g.fillStyle = 'rgba(255,255,255,.55)'; for (let y = 24; y < top - 12; y += 48) for (let x = 24; x < w; x += 32) { g.beginPath(); g.arc(x, y + (x / 32 % 2) * 24, 3, 0, 7); g.fill(); }
+  g.fillStyle = 'rgba(70,30,60,.28)'; g.fillRect(0, top, w, h - top);
+  g.strokeStyle = 'rgba(255,245,235,.35)'; g.lineWidth = 2; for (let x = 8; x < w; x += 64) { g.beginPath(); g.roundRect ? g.roundRect(x, top + 16, 48, h - top - 34, 6) : g.rect(x, top + 16, 48, h - top - 34); g.stroke(); }
+  g.fillStyle = 'rgba(255,250,240,.9)'; g.fillRect(0, top - 5, w, 7); g.fillStyle = 'rgba(70,30,60,.25)'; g.fillRect(0, top + 2, w, 2); g.fillRect(0, h - 10, w, 10);
+}, [1, 1]);
+// Box mit Welt-UVs: das Muster wird nicht gestreckt, egal wie lang die Wand ist.
+function worldBoxGeo(w, h, d, tile = 2.4, vt = WH) {
+  const geo = new THREE.BoxGeometry(w, h, d), uv = geo.attributes.uv;
+  const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  for (let i = 0; i < uv.count; i++) { const [fu, fv] = dims[Math.floor(i / 4)]; uv.setXY(i, uv.getX(i) * fu / tile, uv.getY(i) * fv / vt); }
+  return geo;
+}
 function wall(x0, x1, z0, z1, f, col = 0xe8e4d4, h = WH, collide = true) {
   if (x1 - x0 < 0.01 || z1 - z0 < 0.01) return;
-  const m = box((x0 + x1) / 2, f * FH + h / 2, (z0 + z1) / 2, x1 - x0, h, z1 - z0, h > 3 ? TM(col, WALLTEX(), 'wall') : M(col));
+  let m;
+  if (h > 3) { m = new THREE.Mesh(worldBoxGeo(x1 - x0, h, z1 - z0), TM(col, WALLTEX(), 'wall')); m.position.set((x0 + x1) / 2, f * FH + h / 2, (z0 + z1) / 2); scene.add(m); }
+  else m = box((x0 + x1) / 2, f * FH + h / 2, (z0 + z1) / 2, x1 - x0, h, z1 - z0, M(col));
   camBlockers.push(m);
   if (collide) WALLS.push({ x0, x1, z0, z1, f });
   return m;
@@ -274,10 +290,35 @@ function woodDraw(g, w, h) {
 }
 const WOOD = () => cTex('woodFurniture', 256, 256, woodDraw);
 const woodMat = col => TM(col, WOOD(), 'woodFurniture');
-const texLino = texMat('lino', 256, 256, floorDraw('#d8d2c2', '#b9b1a0'), [24, 2.5]);
-const texWood = TM(0xc99a5b, cTex('woodFloor', 256, 256, woodDraw, [4, 3]), 'woodFloor');
-const texTile = texMat('tile', 256, 256, floorDraw('#f2f6f8', '#e0e8e8'), [6, 5]);
-const texCarpet = texMat('carpet', 128, 128, (g, w, h) => noiseFill(g, w, h, '#8a3b3b', 30, 5000), [6, 5]);
+// Gemusterte Teppiche: dunkle Basis, Rautengitter, bunte Konfetti-Formen (Casino-Flur trifft Schulgang).
+// Teppich: ruhige Basis, weiches Rautengitter, große runde Punkte. Sauber statt Konfetti-Chaos.
+function carpetDraw(base, line, cols, seed) { return (g, w, h) => {
+  g.fillStyle = base; g.fillRect(0, 0, w, h); const q = w / 4;
+  g.fillStyle = line;
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { if ((x + y) % 2) continue; g.beginPath(); g.moveTo(x * q + q / 2, y * q + 4); g.lineTo(x * q + q - 4, y * q + q / 2); g.lineTo(x * q + q / 2, y * q + q - 4); g.lineTo(x * q + 4, y * q + q / 2); g.closePath(); g.fill(); }
+  for (let y = 0; y <= 4; y++) for (let x = 0; x <= 4; x++) { g.fillStyle = cols[(x + y * 2 + seed) % cols.length]; g.beginPath(); g.arc(x * q, y * q, 7, 0, 7); g.fill(); }
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { if (!((x + y) % 2)) continue; g.fillStyle = cols[(x + seed) % cols.length]; g.globalAlpha = .55; g.beginPath(); g.arc(x * q + q / 2, y * q + q / 2, 4, 0, 7); g.fill(); g.globalAlpha = 1; }
+}; }
+const texLino = texMat('hallCarpet', 256, 256, carpetDraw('#46307a', 'rgba(130,100,200,.55)', ['#5fe3d8', '#ff7fc0', '#ffd666'], 1), [20, 2.1]);
+const texWood = TM(0xe0a060, cTex('woodFloor', 256, 256, woodDraw, [4, 3]), 'woodFloor');
+const texTile = texMat('tile', 256, 256, (g, w, h) => {
+  checker('#ffffff', '#3fd0d8')(g, w, h); const q = w / 2;
+  for (let y = 0; y < h; y += q) for (let x = 0; x < w; x += q) { g.fillStyle = (x + y) / q % 2 ? 'rgba(255,255,255,.35)' : 'rgba(0,60,80,.15)'; g.beginPath(); g.moveTo(x + q / 2, y + 12); g.lineTo(x + q - 12, y + q / 2); g.lineTo(x + q / 2, y + q - 12); g.lineTo(x + 12, y + q / 2); g.closePath(); g.fill(); }
+  g.strokeStyle = 'rgba(30,60,70,.35)'; g.lineWidth = 3; for (let k = 0; k <= w; k += q) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k, h); g.moveTo(0, k); g.lineTo(w, k); g.stroke(); }
+}, [8, 6]);
+const texCarpet = texMat('carpet', 256, 256, carpetDraw('#9a3050', 'rgba(200,90,110,.6)', ['#ffd666', '#ffb08a'], 0), [5, 4]);
+const texCarpetOffice = texMat('carpetOffice', 256, 256, carpetDraw('#245a72', 'rgba(70,140,160,.6)', ['#7ff0e0', '#d0a8ff'], 0), [5, 4]);
+const texCeil = texMat('ceil', 128, 128, (g, w, h) => {
+  noiseFill(g, w, h, '#f4ecff', 10, 900); g.strokeStyle = 'rgba(80,60,120,.14)'; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
+  g.fillStyle = 'rgba(80,60,120,.12)'; for (let i = 0; i < 60; i++) g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+}, [1, 1]);
+const LIGHTM = new THREE.MeshBasicMaterial({ color: 0xfff4dc }), NEON_PINK = new THREE.MeshBasicMaterial({ color: 0xff4fb8 }), NEON_CYAN = new THREE.MeshBasicMaterial({ color: 0x3ff0e0 }), NEON_YEL = new THREE.MeshBasicMaterial({ color: 0xffd23f });
+// Decke nur nach unten sichtbar: von oben (Lobby-Kamera) bleibt das Gebäude offen.
+function ceiling(x0, x1, z0, z1, y) {
+  const w = x1 - x0, d = z1 - z0, geo = new THREE.PlaneGeometry(w, d), uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 2, uv.getY(i) * d / 2);
+  const m = new THREE.Mesh(geo, texCeil); m.rotation.x = Math.PI / 2; m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2); scene.add(m); return m;
+}
 const texGrass = texMat('grass', 256, 256, (g, w, h) => {
   noiseFill(g, w, h, '#6bab49', 28, 5000); const r = mulberry(82);
   for (let i = 0; i < 1500; i++) { const x = r() * w, y = r() * h; g.strokeStyle = ['#52923c', '#81b957', '#629f40'][i % 3]; g.beginPath(); g.moveTo(x, y); g.lineTo(x + r() * 6 - 3, y - 3 - r() * 8); g.stroke(); }
@@ -296,7 +337,16 @@ function boardTex(lines) { return texMat('board:' + lines.join('|'), 512, 256, (
 }); }
 const BOARD_TEXT = [['2 + 2 = Fisch', 'x = vielleicht', 'Hausübung: ALLES'], ['Der Hund, die Katze,', 'das Hausübung (?)', 'Diktat morgen!!'], ['H2O + Wurst = ?', 'NICHT trinken!!', 'Explosion ≠ gut'], ['1492: irgendwas', 'Napoleon: klein', 'Test bald (geheim)'], ['F = m · a · Pech', 'Schwerkraft: ja', 'Formel lernen!'], ['Zeichnet eine Katze', 'aber realistisch', 'mit Gefühl']];
 
-function signTex(text, bg = '#1f1a33', fg = '#fffdf2', w = 256, h = 64) { return cTex('sign:' + [text, bg, fg, w, h].join('|'), w, h, (g) => { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = fg; g.font = `${Math.floor(h * .55)}px "Luckiest Guy", Impact, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2); }); }
+// Neonschilder: dunkles Feld, leuchtende Schrift mit Glühen und Leuchtrahmen.
+function neonCol(c) { const col = new THREE.Color(c); const hsl = {}; col.getHSL(hsl); col.setHSL(hsl.h, Math.min(1, hsl.s + .2), Math.max(.62, hsl.l)); return '#' + col.getHexString(); }
+function signTex(text, bg = '#1f1a33', fg = '#fffdf2', w = 512, h = 128) { return cTex('sign:' + [text, bg, fg, w, h].join('|'), w, h, (g) => {
+  const n = bg === '#1f1a33' ? '#c58cff' : neonCol(bg);
+  g.fillStyle = '#1a0f2e'; g.fillRect(0, 0, w, h);
+  g.shadowColor = n; g.shadowBlur = 14; g.strokeStyle = n; g.lineWidth = 6; g.strokeRect(9, 9, w - 18, h - 18);
+  let fs = Math.floor(h * .5); g.font = `${fs}px "Luckiest Guy", Impact, sans-serif`; while (g.measureText(text).width > w - 50 && fs > 10) { fs -= 2; g.font = `${fs}px "Luckiest Guy", Impact, sans-serif`; }
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = n; g.shadowBlur = 22; g.fillText(text, w / 2, h / 2 + 3); g.fillText(text, w / 2, h / 2 + 3);
+  g.shadowBlur = 4; g.fillStyle = 'rgba(255,255,255,.85)'; g.font = `${fs * .96}px "Luckiest Guy", Impact, sans-serif`; g.fillText(text, w / 2, h / 2 + 3);
+}); }
 function sign(text, x, y, z, ry, w = 2.2, bg, fg) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 4), new THREE.MeshBasicMaterial({ map: signTex(text, bg, fg) })); m.position.set(x, y, z); m.rotation.y = ry; scene.add(m); return m; }
 
 const INTER = []; // interactables {x,y,z,r,label,fn,cond}
@@ -344,15 +394,20 @@ function buildWorld() {
     const y = f * FH;
     const hall = new THREE.Mesh(BOX, texLino); hall.scale.set(48, .2, 5); hall.position.set(0, y - .1, 0); scene.add(hall);
     ROOMS.filter(r => r.f === f).forEach(r => {
-      const mat = r.type === 'toilet' ? texTile : r.type === 'staff' || r.type === 'office' ? texCarpet : r.type === 'stairs' ? M(0xbdbdbd) : texWood;
+      const mat = r.type === 'toilet' ? texTile : r.type === 'staff' ? texCarpet : r.type === 'office' || r.type === 'library' ? texCarpetOffice : r.type === 'stairs' ? M(0x8f86c8) : texWood;
       const pieces = [];
       if (f === 1 && r.type === 'stairs') pieces.push([12, 24, -7.5, -2.5], [21, 24, -12, -7.5], [12, 13, -12, -7.5]);
       else if (f === 1 && r.name === 'Klo OG') pieces.push([r.x0, HOLE.x0, r.z0, r.z1], [HOLE.x1, r.x1, r.z0, r.z1], [HOLE.x0, HOLE.x1, r.z0, HOLE.z0], [HOLE.x0, HOLE.x1, HOLE.z1, r.z1]);
       else pieces.push([r.x0, r.x1, r.z0, r.z1]);
       pieces.forEach(([a, b, c, d]) => { const m = new THREE.Mesh(BOX, mat); m.scale.set(b - a, .2, d - c); m.position.set((a + b) / 2, y - .1, (c + d) / 2); scene.add(m); });
+      if (f === 1) pieces.forEach(([a, b, c, d]) => ceiling(a, b, c, d, WH));
+      [-.25, .25].forEach(k => db(r.cx + k * (r.x1 - r.x0), y + WH - .03, (r.z0 + r.z1) / 2, 2.2, .05, .7, LIGHTM));
     });
+    if (f === 1) { ceiling(-24, 24, -2.5, 2.5, WH); ceiling(-24, 24, -12, 12, FH + WH); }
+    for (let x = -21; x <= 21; x += 4) db(x, y + WH - .03, 0, 1.6, .05, .6, LIGHTM);
+    [[2.5 - T - .04, NEON_PINK], [-2.5 + T + .04, NEON_CYAN]].forEach(([z, mt]) => { db(0, y + WH - .1, z, 48, .06, .06, mt); });
     // outer walls
-    const ow = 0xf2d6a2;
+    const ow = 0xffc48c;
     wall(-24, 24, 12 - T, 12 + T, f, ow); wall(-24, 24, -12 - T, -12 + T, f, ow); wall(24 - T, 24 + T, -12, 12, f, ow);
     if (f === 0) wallWithDoors('z', -24, -12, 12, 0, [0], ow, 1.3); else wall(-24 - T, -24 + T, -12, 12, f, ow);
     // windows on outer walls
@@ -360,8 +415,8 @@ function buildWorld() {
     [-8.5, -4.5, 4.5, 8.5].forEach(z => { windowDeco(-24.17, y + 2, z, true); windowDeco(24.17, y + 2, z, true); });
     // hallway walls with doors
     const doorsN = ROOMS.filter(r => r.f === f && r.side > 0).map(r => r.doorX), doorsS = ROOMS.filter(r => r.f === f && r.side < 0).map(r => r.doorX);
-    wallWithDoors('x', 2.5, -24, 24, f, doorsN, 0xbfe0d0); wallWithDoors('x', -2.5, -24, 24, f, doorsS, 0xbfe0d0);
-    [-12, 0, 12].forEach(x => { wall(x - T, x + T, 2.5, 12, f, 0xe8e4d4); wall(x - T, x + T, -12, -2.5, f, 0xe8e4d4); });
+    const hc = f ? 0xc9b0ff : 0xffb3d6; wallWithDoors('x', 2.5, -24, 24, f, doorsN, hc); wallWithDoors('x', -2.5, -24, 24, f, doorsS, hc);
+    [-12, 0, 12].forEach(x => { wall(x - T, x + T, 2.5, 12, f, 0xffd9a8); wall(x - T, x + T, -12, -2.5, f, 0xffd9a8); });
     // room signs + lockers
     ROOMS.filter(r => r.f === f).forEach(r => {
       const zs = r.side > 0 ? 2.5 - T - .02 : -2.5 + T + .02;
@@ -376,9 +431,10 @@ function buildWorld() {
       // Dünne Wandverkleidung innerhalb bestehender Wände, Türen bleiben offen.
       const tint = new THREE.Color(wallMatFor(r.type)).multiplyScalar(.95 + (r.i % 3) * .025).getHex();
       [r.x0 + .126, r.x1 - .126].forEach(x => {
-        db(x, y + WH / 2, (r.z0 + r.z1) / 2, .008, WH, 9.2, TM(tint, WALLTEX(), 'wall'));
+        { const pm = new THREE.Mesh(worldBoxGeo(.008, WH, 9.2), TM(tint, WALLTEX(), 'wall')); pm.position.set(x, y + WH / 2, (r.z0 + r.z1) / 2); scene.add(pm); }
         db(x, y + .13, (r.z0 + r.z1) / 2, .025, .22, 9.2, 0xb8aa8f);
       });
+      { const zf = r.side > 0 ? r.z1 - .126 : r.z0 + .126; const pm = new THREE.Mesh(worldBoxGeo(r.x1 - r.x0 - .26, WH, .008), TM(tint, WALLTEX(), 'wall')); pm.position.set(r.cx, y + WH / 2, zf); scene.add(pm); }
     });
     // fire alarm on each floor
     const ax = f ? 3.2 : -9, az = 2.35;
@@ -410,7 +466,7 @@ function buildWorld() {
         seats.push({ x, z: zIn(d - .7), y, ry: face, dz: zIn(d) });
       }));
       box(r.cx, y + 1.9, zIn(9.35), 6, 2, .1, boardTex(BOARD_TEXT[boardI++ % BOARD_TEXT.length])).rotation.y = s > 0 ? Math.PI : 0;
-      box(r.cx, y + 1.9, zIn(9.42), 6.3, 2.2, .06, woodMat(0x7a5a32));
+      box(r.cx, y + 1.9, zIn(9.42), 6.3, 2.2, .06, woodMat(0x7a5a32)); db(r.cx, y + 3.1, zIn(9.3), 6.4, .07, .07, [NEON_PINK, NEON_CYAN, NEON_YEL][r.i % 3]);
       box(r.cx + 3.2, y + .45, zIn(8.2), 1.8, .9, .8, woodMat(0x7a5a32)); WALLS.push({ x0: r.cx + 2.3, x1: r.cx + 4.1, z0: Math.min(zIn(7.8), zIn(8.6)), z1: Math.max(zIn(7.8), zIn(8.6)), f: r.f });
       FRONT[r.i] = { front: { x: r.cx - 1, z: zIn(8.4) }, board: { x: r.cx + rnd(-1.5, 1.5), z: zIn(9) }, desk: { x: r.cx + 3.2, z: zIn(8.9) }, back: { x: r.cx, z: zIn(2.2) }, ry: face + Math.PI, boardRy: face, aisles: [-1.7, 1.7].flatMap(dx => [3, 5, 7].map(d => ({ x: r.cx + dx, z: zIn(d) }))) };
     } else if (r.type === 'toilet') {
@@ -480,7 +536,8 @@ function setLabel(s, text) {
   g.fillStyle = u.fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 47, 490); u.t.needsUpdate = true;
   s.scale.set(3.4 * u.scale, .64 * u.scale, 1);
 }
-const SPH = new THREE.SphereGeometry(.5, 12, 8), CYL = new THREE.CylinderGeometry(.5, .5, 1, 10), CONE = new THREE.ConeGeometry(.5, 1, 12), TOR = new THREE.TorusGeometry(.5, .09, 6, 16);
+const EYEM = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const SPH = new THREE.SphereGeometry(.5, 14, 10), CYL = new THREE.CylinderGeometry(.5, .5, 1, 10), CONE = new THREE.ConeGeometry(.5, 1, 12), TOR = new THREE.TorusGeometry(.5, .09, 6, 16);
 function ball(x, y, z, sx, sy, sz, mat, parent) { const m = new THREE.Mesh(SPH, typeof mat === 'number' ? M(mat) : mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); parent.add(m); return m; }
 // Kleine Geometrie-Palette: deterministische Beulen ohne Risse an UV-Naht/Polen.
 const potatoCache = new Map();
@@ -508,9 +565,16 @@ function makeChar(opts) {
   // big round potato head
   const head = new THREE.Mesh(potato(h), faceM); head.scale.set((o.teacher ? 1.05 : 1.02) * s, .98 * s, .94 * s); g.add(head);
   const eyes = []; const big = r() < .5 ? 0 : 1;
-  [-.21, .21].forEach((x, i) => { const es = i === big ? .48 : .38; const e = ball(x, .12 + (i === big ? .03 : 0), .38, es, es, es * .7, 0xffffff, head); const p = ball(0, 0, .45, .47, .51, .24, 0x222032, e); ball(-.1, .12, .11, .16, .16, .1, 0xffffff, p); eyes.push(p); });
-  [-1, 1].forEach(sd => ball(sd * .31, -.12, .37, .22, .12, .075, 0xef918c, head)); // Apfelbacken
-  ball(0, -.2, .43, .34, .1 + r() * .08, .1, 0x6b2020, head); // mouth
+  // Große, leicht leuchtende Glubschaugen (unbeleuchtetes Weiß), dicke Augenbrauen.
+  const browM = M(new THREE.Color(o.hair).multiplyScalar(.55).getHex()), angry = r() < .45 ? 1 : -1;
+  [-.22, .22].forEach((x, i) => {
+    const es = i === big ? .6 : .5, ey = .14 + (i === big ? .04 : 0);
+    const e = ball(x, ey, .36, es, es, es * .62, EYEM, head); const p = ball(0, 0, .46, .4, .44, .2, 0x150f24, e); ball(-.1, .12, .11, .2, .2, .1, EYEM, p); eyes.push(p);
+    const b = box(x * 1.05, ey + es * .62, .47, .32, .085, .07, browM, head); b.rotation.z = (x < 0 ? 1 : -1) * angry * (.18 + r() * .2);
+  });
+  [-1, 1].forEach(sd => ball(sd * .33, -.13, .37, .22, .12, .075, 0xff8fa8, head)); // Apfelbacken
+  if (!o.teacher) ball(0, -.04, .5, .2, .16, .16, 0xff8fa0, head); // rosa Knubbelnase
+  ball(0, -.24, .42, .4, .12 + r() * .08, .1, 0x5a1430, head); // mouth
   if (r() < .45) box(r() < .5 ? .05 : -.05, -.25, .47, .08, .08, .03, M(0xffffff), head); // buck tooth
   if (o.teacher) {
     ball(0, -.02, .52, .26, .22, .26, 0xff8f7a, head); // clown-ish nose

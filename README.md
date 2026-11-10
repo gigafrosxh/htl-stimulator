@@ -1,6 +1,6 @@
 # School With Your Friends
 
-Ein bewusst billiges, chaotisches Low-Poly-3D-Koop-Spiel für 1–6 Spieler: Überlebt gemeinsam einen Schultag, macht heimlich Hausübungen, schummelt, sabotiert euch gegenseitig und lasst euch bloß nicht erwischen. Wer das Tagesziel verfehlt, muss für den Rest der Ewigkeit nachsitzen.
+Ein bewusst billiges, chaotisches Low-Poly-3D-Koop-Spiel für 1–6 Spieler in der Ego-Perspektive (mit Cartoon-Handschuhen): Überlebt gemeinsam einen Schultag, macht heimlich Hausübungen, schummelt, sabotiert euch gegenseitig und lasst euch bloß nicht erwischen. Wer das Tagesziel verfehlt, muss für den Rest der Ewigkeit nachsitzen.
 
 ## Spielen
 
@@ -32,7 +32,7 @@ Alle paar Tage (in der Lobby einstellbar) ist die 3. Stunde eine Schularbeit. Im
 | Taste | Aktion |
 |---|---|
 | WASD / Shift / Space | Laufen / Rennen / Springen |
-| Maus (Klick) | Umsehen |
+| Maus (Klick) | Umsehen (Ego-Perspektive; beim Ragdoll geht die Kamera kurz nach hinten) |
 | E | Hinsetzen, benutzen (Automat, Feueralarm, Lehrerzimmer ...) |
 | H | Hausübung machen |
 | F / V | Abschreiben / HÜ stehlen |
