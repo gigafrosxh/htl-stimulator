@@ -555,7 +555,7 @@ function updateCamera(dt) {
     camera.position.copy(camTarget).addScaledVector(dir, camD); camera.lookAt(camTarget); eyeY = null; return;
   }
   const bob = SET.bob ? Math.abs(Math.sin(meCh.ph)) * .07 * Math.min(1, ME.spd / 5) : 0;
-  const target = ME.y + (ME.seat ? 1.72 : 1.95) * meCh.sz + bob + clamp(meCh.sq || 0, -.35, .35) * .35;
+  const target = ME.y + (ME.seat ? 1.92 : 1.95) * meCh.sz + bob + clamp(meCh.sq || 0, -.35, .35) * .35;
   eyeY = eyeY === null || Math.abs(eyeY - target) > 2 ? target : lerp(eyeY, target, 1 - Math.exp(-30 * dt));
   camera.position.set(ME.x, eyeY, ME.z);
   if (ME.energyT > 0) { camera.position.x += Math.sin(performance.now() / 40) * .02; }
