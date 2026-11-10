@@ -205,7 +205,7 @@ function hudTick(now) {
   }
   $('#prompt').textContent = p;
   const wp = $('#wp'); if (WP && !MG.open) { const fa = Math.atan2(-Math.sin(yaw), -Math.cos(yaw)); const rel = angDiff(fa, Math.atan2(WP.x - ME.x, WP.z - ME.z)); wp.hidden = false; $('#wpArrow').style.transform = `rotate(${-rel}rad)`; $('#wpText').textContent = `${WP.label} · ${Math.round(WP.d)} m`; } else wp.hidden = true;
-  $('#lockHint').hidden = !(document.pointerLockElement !== canvas && !MG.open && G.ph !== 'detention');
+  $('#lockHint').hidden = !(document.pointerLockElement !== canvas && !MG.open && !paused && G.ph !== 'detention'); if (paused && !canPause()) closePause(false);
   $('#netState').textContent = Net.solo ? 'Solo · offline' : `${Net.connected ? 'Online' : 'Verbinde...'} · ${G.np} Spieler · Klasse ${CODE}${isHost() ? ' · Host' : ''}`;
 }
 $('#planRows').addEventListener('click', e => { const r = e.target.closest('.lrow'); if (r && !MG.open) openHW(+r.dataset.li); });
@@ -324,7 +324,8 @@ function frame(now) {
   try {
     if (!started) { const a = t * .05; camera.position.set(Math.sin(a) * 45, 22, Math.cos(a) * 45); camera.lookAt(0, 2, 0); renderer.render(scene, camera); return; }
     syncG(now);
-    if (isHost()) hostTick(dt);
+    const frozen = paused && !others().length; // solo: Pause hält die Zeit an
+    if (isHost() && !frozen) hostTick(dt);
     buildPresence();
     processLogs();
     const was = inGame; inGame = G.ph !== 'lobby';
@@ -332,7 +333,7 @@ function frame(now) {
     if (!inGame) { lobbyTick(); const a = t * .05; camera.position.set(Math.sin(a) * 45, 22, Math.cos(a) * 45); camera.lookAt(0, 2, 0); }
     phaseCheck(dt);
     if (inGame && G.ph === 'detention') updateCut(dt, t);
-    else if (inGame) { updateMe(dt, t); updateSus(dt); checkBananas(); updateCamera(dt); updateHands(dt, t); }
+    else if (inGame) { if (!frozen) { updateMe(dt, t); updateSus(dt); checkBananas(); } updateCamera(dt); updateHands(dt, t); }
     else renderChar(meCh, t, dt);
     if (inGame && G.ph !== 'detention') { updateCones(t); updateWaypoint(t); } else { wpArrow.visible = false; cones.forEach(c => c && (c.g.visible = false)); }
     meCh.shadow.visible = G.ph !== 'detention'; meCh.g.visible = G.ph !== 'detention' && (!inGame || !!meCh.rg); // 1st person: eigener Körper nur beim Ragdoll

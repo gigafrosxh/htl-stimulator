@@ -66,8 +66,9 @@ const fillSay = (s, o = {}) => s.replace('{n}', o.n || '').replace('{s}', o.s ||
 
 // ---------------- audio ----------------
 const Snd = (() => {
+  let VOL = 1;
   let ac = null, master = null, on = true;
-  function init() { if (ac) return; try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = .5; master.connect(ac.destination); } catch (e) { ac = null; } }
+  function init() { if (ac) return; try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = .5 * VOL; master.connect(ac.destination); } catch (e) { ac = null; } }
   function env(g, t, a, d, peak = 1) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
   function osc(type, f0, f1, dur, vol = .3, delay = 0, vib = 0) {
     if (!ac || !on) return; const t = ac.currentTime + delay; const o = ac.createOscillator(), g = ac.createGain();
@@ -85,7 +86,7 @@ const Snd = (() => {
     for (let i = 0; i < n; i++) { const f = (180 + Math.random() * 160) * pitch; osc('square', f, f * rnd(.8, 1.2), .07, vol, i * .085); }
   }
   return {
-    init, voice, get on() { return on; }, set on(v) { on = v; },
+    init, voice, get on() { return on; }, set on(v) { on = v; }, set vol(v) { VOL = v; if (master) master.gain.value = .5 * v; },
     boing() { osc('sine', 140, 620, .18, .35); osc('sine', 620, 160, .3, .3, .18, 30); },
     slap() { noise(.12, .6, 2500, 'highpass'); osc('triangle', 220, 80, .1, .3); },
     whistleUp() { osc('sine', 380, 1500, .55, .2, 0, 12); },
@@ -410,6 +411,15 @@ function buildWorld() {
     const ow = 0xffc48c;
     wall(-24, 24, 12 - T, 12 + T, f, ow); wall(-24, 24, -12 - T, -12 + T, f, ow); wall(24 - T, 24 + T, -12, 12, f, ow);
     if (f === 0) wallWithDoors('z', -24, -12, 12, 0, [0], ow, 1.3); else wall(-24 - T, -24 + T, -12, 12, f, ow);
+    if (f === 0) { // Schulhof gibt's in dieser Version noch nicht: Ausgang verbarrikadiert
+      WALLS.push({ x0: -24.3, x1: -23.6, z0: -1.4, z1: 1.4, f: 0 });
+      const tape = texMat('barrier', 128, 32, (g, w, h) => { g.fillStyle = '#ffd23f'; g.fillRect(0, 0, w, h); g.fillStyle = '#1f1a33'; for (let x = -h; x < w + h; x += 24) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + 12, h); g.lineTo(x + 12 + h, 0); g.lineTo(x + h, 0); g.closePath(); g.fill(); } }, [3, 1]);
+      [[.75, .35], [1.55, -.35], [2.3, .2]].forEach(([y, rx]) => { const b = box(-23.8, y, 0, .12, .32, 3.1, tape); b.rotation.x = rx; });
+      [-1.35, 1.35].forEach(z => box(-23.8, 1.25, z, .2, 2.5, .2, woodMat(0x9a6a3a)));
+      sign('COMING SOON', -23.66, 2.85, 0, Math.PI / 2, 2.6, '#ff4fb8');
+      const note = new THREE.Mesh(new THREE.PlaneGeometry(.9, .6), new THREE.MeshBasicMaterial({ map: cTex('soonNote', 192, 128, (g, w, h) => { g.fillStyle = '#fffdf2'; g.fillRect(0, 0, w, h); g.fillStyle = '#1f1a33'; g.font = '26px "Patrick Hand", cursive'; g.textAlign = 'center'; g.fillText('Schulhof', w / 2, 40); g.fillText('kommt bald!', w / 2, 72); g.font = '18px "Patrick Hand", cursive'; g.fillText('- Die Direktion', w / 2, 108); }) }));
+      note.position.set(-23.6, 1.15, .55); note.rotation.y = Math.PI / 2; note.rotation.z = .08; scene.add(note);
+    }
     // windows on outer walls
     for (let x = -21; x <= 21; x += 6) { windowDeco(x, y + 2, 12.17); windowDeco(x, y + 2, -12.17); }
     [-8.5, -4.5, 4.5, 8.5].forEach(z => { windowDeco(-24.17, y + 2, z, true); windowDeco(24.17, y + 2, z, true); });

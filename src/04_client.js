@@ -3,6 +3,26 @@ const ME = { name: 'Schüler', color: COLORS[0], x: -20, y: 0, z: 0, ry: Math.PI
 let meCh = null; const remote = new Map(); const tchCh = []; const npcCh = []; const wanCh = []; const WV = WAND.map(() => ({ x: 0, y: -50, z: 0, ry: 0, init: false })); const projs = []; const bananas = new Map();
 let started = false, yaw = -Math.PI / 2, pitch = 0, camDist = 3.6;
 const keys = new Set();
+// ---------------- Einstellungen + Esc-Menü ----------------
+const SET = Object.assign({ sens: 1, fov: 74, vol: 1, inv: false, bob: true }, (() => { try { return JSON.parse(localStorage.getItem('swyf-settings') || '{}'); } catch (e) { return {}; } })());
+function applySettings() { camera.fov = SET.fov; camera.updateProjectionMatrix(); Snd.vol = SET.vol; try { localStorage.setItem('swyf-settings', JSON.stringify(SET)); } catch (e) { } }
+let paused = false;
+function canPause() { return started && G.ph !== 'lobby' && G.ph !== 'detention' && !MG.open; }
+function openPause() { if (paused || !canPause()) return; paused = true; keys.clear(); jumpBuffer = 0; $('#pause').classList.remove('hidden'); $('#pauseSub').textContent = others().length ? 'Die Lehrer warten nicht: im Mehrspieler läuft die Zeit weiter.' : 'Solo: die Zeit ist angehalten.'; if (document.pointerLockElement === canvas) { try { document.exitPointerLock(); } catch (e) { } } setTimeout(() => $('#pResume').focus(), 0); }
+function closePause(lock = true) { if (!paused) return; paused = false; $('#pause').classList.add('hidden'); canvas.focus(); if (lock) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } } }
+let lockLostAt = 0;
+document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== canvas && canPause() && !paused) { lockLostAt = performance.now(); openPause(); } });
+(function initPauseUI() {
+  const bind = (id, out, key, fmt) => { const el = $(id); el.value = SET[key]; $(out).textContent = fmt(SET[key]); el.addEventListener('input', () => { SET[key] = +el.value; $(out).textContent = fmt(SET[key]); applySettings(); }); };
+  bind('#sSens', '#oSens', 'sens', v => v.toFixed(2) + '×'); bind('#sFov', '#oFov', 'fov', v => v + '°'); bind('#sVol', '#oVol', 'vol', v => Math.round(v * 100) + '%');
+  $('#sInv').checked = SET.inv; $('#sInv').addEventListener('change', e => { SET.inv = e.target.checked; applySettings(); });
+  $('#sBob').checked = SET.bob; $('#sBob').addEventListener('change', e => { SET.bob = e.target.checked; applySettings(); });
+  $('#pResume').addEventListener('click', () => closePause(true));
+  $('#pKeys').addEventListener('click', () => $('#pKeyList').classList.toggle('hidden'));
+  $('#pLeave').addEventListener('click', () => { location.reload(); });
+  $('#pause').addEventListener('mousedown', e => { if (e.target.id === 'pause') closePause(true); });
+  applySettings();
+})();
 let jumpBuffer = 0, coyoteTime = 0;
 const meName = () => ME.name;
 
@@ -15,6 +35,7 @@ function initChars() {
 
 // ---------------- input ----------------
 addEventListener('keydown', e => {
+  if (paused) { if (e.code === 'Escape' && performance.now() - lockLostAt > 250) { e.preventDefault(); closePause(true); } return; }
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) { if (e.code === 'Escape') { e.target.blur(); if (MG.open && !MG.forced) closeMG(); } return; }
   if (['Space', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
   if (!started) return;
@@ -22,6 +43,7 @@ addEventListener('keydown', e => {
   if (e.repeat) return;
   keys.add(e.code);
   if (e.code === 'Escape' && MG.open && !MG.forced) { closeMG(); return; }
+  if (e.code === 'Escape' && !MG.open) { openPause(); return; }
   if (MG.open) return;
   if (e.code === 'Space') jumpBuffer = .14;
   onKey(e.code);
@@ -29,10 +51,10 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => { keys.clear(); jumpBuffer = 0; });
 let dragging = false;
-canvas.addEventListener('mousedown', e => { Snd.init(); dragging = true; if (started && !MG.open && document.pointerLockElement !== canvas) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (err) { } } });
+canvas.addEventListener('mousedown', e => { Snd.init(); if (paused) return; dragging = true; if (started && !MG.open && document.pointerLockElement !== canvas) { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (err) { } } });
 addEventListener('mouseup', () => dragging = false);
 addEventListener('mousemove', e => {
-  if (document.pointerLockElement === canvas || dragging) { yaw -= e.movementX * .0026; pitch = clamp(pitch + e.movementY * .0024, -1.4, 1.4); }
+  if (paused) return; if (document.pointerLockElement === canvas || dragging) { yaw -= e.movementX * .0026 * SET.sens; pitch = clamp(pitch + e.movementY * .0024 * SET.sens * (SET.inv ? -1 : 1), -1.4, 1.4); }
 });
 
 // ---------------- helpers ----------------
@@ -466,6 +488,8 @@ function updateMe(dt, t) {
   }
   if (!ME.seat && !meCh.rg && !busy) ME.ry = lerpAng(ME.ry, Math.atan2(-Math.sin(yaw), -Math.cos(yaw)), 1 - Math.exp(-30 * dt));
   if (ME.y < -5) { ME.x = -20; ME.z = 0; ME.y = 0; }
+  if (ME.x < -22.9 && Math.abs(ME.z) < 1.5 && ME.y < 1 && (ME.soonT || 0) < t) { ME.soonT = t + 6; toast('Der Schulhof ist noch zu: COMING SOON', 'info'); Snd.huh(); }
+  if (ME.x < -24.2) { ME.x = -22.5; ME.z = clamp(ME.z, -1.5, 1.5); } // falls man doch rausrutscht (Ragdoll)
   // copy progress
   if (ME.copy) {
     ME.copy.t -= dt; setPose(ME.copy.phone ? 'phone' : 'write', .3);
@@ -530,7 +554,7 @@ function updateCamera(dt) {
     camD = d < camD ? d : lerp(camD, d, 1 - Math.exp(-8 * dt));
     camera.position.copy(camTarget).addScaledVector(dir, camD); camera.lookAt(camTarget); eyeY = null; return;
   }
-  const bob = Math.abs(Math.sin(meCh.ph)) * .07 * Math.min(1, ME.spd / 5);
+  const bob = SET.bob ? Math.abs(Math.sin(meCh.ph)) * .07 * Math.min(1, ME.spd / 5) : 0;
   const target = ME.y + (ME.seat ? 1.72 : 1.95) * meCh.sz + bob + clamp(meCh.sq || 0, -.35, .35) * .35;
   eyeY = eyeY === null || Math.abs(eyeY - target) > 2 ? target : lerp(eyeY, target, 1 - Math.exp(-30 * dt));
   camera.position.set(ME.x, eyeY, ME.z);
