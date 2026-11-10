@@ -183,7 +183,7 @@ function hudTick(now) {
   let top = '', sub = '';
   if (G.ph === 'break') { top = G.li === 0 ? TR('Vor der 1. Stunde') : TR('Pause bis zur {n}. Stunde', { n: G.li + 1 }); sub = TR('{s} im Raum {r}', { s: cur.s, r: ROOMS[lessonRoomIdx(cur, 0)].name }); }
   else if (G.ph === 'lesson') { top = TR('{n}. Stunde · {s}', { n: G.li + 1, s: cur.s }); const ri = lessonRoomIdx(cur, el); sub = cur.teacher < 0 ? TR('Freistunde!') : `${TR(ROOMS[ri].name)} · ${TEACH[cur.teacher].name} (${PERS[TEACH[cur.teacher].pers].label})`; }
-  else if (G.ph === 'dayEnd') top = TR('Zeugnisse'); else if (G.ph === 'detention') top = TR('NACHSITZEN'); else top = TR('Warten');
+  else if (G.ph === 'dayEnd') top = TR('Zeugnisse'); else if (G.ph === 'detention') top = TR('Nachsitzen'); else top = TR('Warten');
   $('#clockTop').textContent = top; $('#clockBig').textContent = fmtT(rem); $('#clockSub').textContent = sub;
   // score
   $('#teamPts').textContent = G.tp || 0; $('#goalPts').textContent = G.goal || 0; $('#myPts').textContent = ME.pts;
@@ -225,7 +225,7 @@ function phaseCheck(dt) {
     if (G.ph === 'break' && G.li === 0) { ME.x = rnd(-22, -18); ME.z = rnd(-1.5, 1.5); ME.y = 0; ME.seat = null; yaw = -Math.PI / 2; pitch = 0; ME.ry = Math.PI / 2; }
     if (newRun && G.day === 1) ME.items = [];
     const nextSA = Math.ceil(G.day / G.saEvery) * G.saEvery === G.day ? G.day + G.saEvery : Math.ceil(G.day / G.saEvery) * G.saEvery;
-    showBig(`<h2>${esc(TR('Tag {d}: {w}', { d: G.day, w: DAYNAMES[(G.day - 1) % 7] }))}</h2><p>${esc(TR('Klassenziel: {n} Punkte', { n: G.goal }))}<br>${esc(TR('Die Hausübungen hat natürlich wieder keiner gemacht.'))}</p><p style="font-size:15px">${esc(TR('Erste Stunde: {s} im Raum {r}', { s: plan()[0].s, r: ROOMS[plan()[0].room].name }))}</p>${plan().some(l => l.sa) ? `<p style="color:var(--red);font-size:18px">⚠️ ${esc(TR('Heute ist Schularbeit in {s} (3. Stunde). Besorg dir einen Spickzettel!', { s: plan().find(l => l.sa).s }))}</p>` : G.saEvery ? `<p style="font-size:14px">${esc(TR('Nächste Schularbeit: Tag {d}', { d: nextSA }))}</p>` : ''}`, 6);
+    showBig(`<h2>${esc(TR('Tag {d}: {w}', { d: G.day, w: DAYNAMES[(G.day - 1) % 7] }))}</h2><p>${esc(TR('Klassenziel: {n} Punkte', { n: G.goal }))}<br>${esc(TR('Die Hausübungen hat natürlich wieder keiner gemacht.'))}</p><p style="font-size:15px">${esc(TR('Erste Stunde: {s} im Raum {r}', { s: plan()[0].s, r: ROOMS[plan()[0].room].name }))}</p>${plan().some(l => l.sa) ? `<p style="color:var(--red);font-size:18px">⚠️ ${esc(TR('Heute ist Schularbeit in {s} (3. Stunde). Besorg dir einen Spickzettel!', { s: plan().find(l => l.sa).s }))}</p>` : G.saEvery ? `<p style="font-size:14px">${esc(TR('Nächste Schularbeit: Tag {d}', { d: nextSA }))}</p>` : ''}`, Math.max(1.5, gIntro()));
     Snd.fanfare();
   }
   if (G.ph !== prevPh || G.li !== prevLi) {
@@ -235,7 +235,7 @@ function phaseCheck(dt) {
       if (ME.nach === prevLi) { ME.nach = -1; addPts(-40, TR('HÜ nicht nachgereicht')); }
     }
     if (G.ph === 'lesson') { const L = curL(); toast(TR('{n}. Stunde: {s}', { n: G.li + 1, s: L.s }), 'info'); }
-    if (G.ph === 'break' && prevPh === 'lesson') toast(TR('Pause! Zeit zum Raumwechseln, für HÜs und für Items.'), 'info');
+    if (G.ph === 'break' && prevPh === 'lesson') toast(TR('Pause. Jetzt kannst du den Raum wechseln, HÜs machen oder Items holen.'), 'info');
     if (G.ph === 'dayEnd') showReport();
     if (G.ph === 'detention') startCut();
     if (prevPh === 'detention' && G.ph !== 'detention') endCut();
@@ -247,7 +247,7 @@ function showReport() {
   const ps = allPlayers().filter(p => p.presence.n).map(p => ({ n: p.isMe ? ME.name : p.presence.n, pts: p.isMe ? ME.pts : (p.presence.pts || 0) })).sort((a, b) => b.pts - a.pts);
   const per = res.goal / Math.max(1, ps.length);
   const rows = ps.map(p => { const [g, gn] = GRADE(clamp(p.pts / Math.max(1, per) * .75, 0, 1)); return `<span>${esc(p.n)}</span><span>${esc(TR('{n} P.', { n: p.pts }))}</span><span class="g">${g}</span>`; }).join('');
-  showBig(`<h2>${esc(res.pass ? TR('BESTANDEN!') : TR('NICHT BESTANDEN'))}</h2><p>${esc(TR('Zeugnis für Tag {d}: {a} von {b} Punkten', { d: G.day, a: res.tp, b: res.goal }))}</p><div class="grades">${rows}</div><p style="font-size:15px">${esc(res.pass ? TR('Morgen wird es schwieriger. Viel Glück.') : TR('Das heißt: Nachsitzen.'))}</p>`, 10.5);
+  showBig(`<h2>${esc(res.pass ? TR('Bestanden!') : TR('Nicht bestanden'))}</h2><p>${esc(TR('Zeugnis für Tag {d}: {a} von {b} Punkten', { d: G.day, a: res.tp, b: res.goal }))}</p><div class="grades">${rows}</div><p style="font-size:15px">${esc(res.pass ? TR('Morgen wird es schwieriger. Viel Glück.') : TR('Das heißt: Nachsitzen.'))}</p>`, 10.5);
   if (res.pass) Snd.fanfare(); else Snd.trombone();
 }
 
@@ -256,7 +256,7 @@ let cut = null; const CX = 140;
 function buildDetention() {
   const g = new THREE.Group(); scene.add(g);
   box(CX, -.1, 0, 14, .2, 12, 0x3a3340, g); box(CX, 2, -6, 14, 4, .2, 0x4a4458, g); box(CX - 7, 2, 0, .2, 4, 12, 0x4a4458, g); box(CX + 7, 2, 0, .2, 4, 12, 0x4a4458, g);
-  const b = box(CX, 2.2, -5.85, 6, 1.6, .05, texMat('detBoard', 256, 64, (c, w, h) => { c.fillStyle = '#24493a'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4f1e6'; c.font = '34px "Luckiest Guy",Impact'; c.textAlign = 'center'; c.fillText(TR('NACHSITZEN'), w / 2, 46); }), g);
+  const b = box(CX, 2.2, -5.85, 6, 1.6, .05, texMat('detBoard', 256, 64, (c, w, h) => { c.fillStyle = '#24493a'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4f1e6'; c.font = '34px "Luckiest Guy",Impact'; c.textAlign = 'center'; c.fillText(TR('Nachsitzen'), w / 2, 46); }), g);
   const face = new THREE.Mesh(new THREE.CircleGeometry(.9, 24), M(0xffffff)); face.position.set(CX + 4.5, 2.6, -5.8); g.add(face);
   const hand = box(0, .35, .02, .08, .7, .02, 0x111111); const pivot = new THREE.Group(); pivot.position.copy(face.position); pivot.position.z += .03; pivot.add(hand); g.add(pivot);
   const hand2 = box(0, .25, .03, .1, .5, .02, 0xe8412c); const pivot2 = new THREE.Group(); pivot2.position.copy(pivot.position); pivot2.add(hand2); g.add(pivot2);

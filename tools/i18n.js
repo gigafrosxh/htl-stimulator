@@ -13,7 +13,7 @@ const HTML = path.join(root, 'src', '01_head.html');
 const DIR = path.join(root, 'src', 'i18n');
 const LANGS = ['en', 'es', 'fr', 'it', 'pt', 'pl', 'tr', 'ru', 'ja'];
 // Tastennamen, Spielname und Klassennummern bleiben in allen Sprachen gleich.
-const SKIP = new Set(['E', 'H', 'F', 'V', 'G', 'R', 'Q', 'X', 'M', 'WASD', 'Shift', 'Esc', 'Space', 'School With Your Friends', '1A', '1B', '1C', '2A', '2B']);
+const SKIP = new Set(['E', 'H', 'F', 'V', 'G', 'R', 'Q', 'X', 'M', 'T', 'WASD', 'Shift', 'Esc', 'Space', 'School With Your Friends', '1A', '1B', '1C', '2A', '2B']);
 const hasLetter = s => /\p{L}/u.test(s) && !SKIP.has(s);
 
 // Liest ab Position i ein JS-String-Literal; gibt [Wert, Ende, istTemplate] zurück.

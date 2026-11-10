@@ -82,6 +82,10 @@ npm run dist:win   # .exe (am besten auf Windows)
 
 Der Workflow `.github/workflows/desktop.yml` baut beide Apps auf GitHub Actions (macOS mit Apple Silicon und Windows) und hängt sie an das Release, sobald der Release-Workflow es angelegt hat. Bei Pull Requests werden sie nur gebaut und liegen unter „Artifacts“ zum Testen bereit.
 
+## Credits
+
+Die Möbelmodelle stammen aus dem [Furniture Kit von Kenney](https://www.kenney.nl) (CC0). `node tools/models.js` wandelt die `.glb`-Dateien aus `assets/kenney-furniture/` in `src/01b_models.js` um.
+
 ## Versionen und Releases
 
 Die aktuelle Versionsnummer steht in `VERSION`. Nach jedem Push auf `main` prüft die Action `.github/workflows/release.yml`, ob es zu dieser Nummer schon ein Release gibt, und legt sonst eins an. Das Release enthält das gebaute Spiel als Download und die Notes aus `release-notes/vX.Y.Z.md`, falls die Datei existiert, sonst automatisch erzeugte Notes. Versionen unter 1.0.0 oder mit Suffix (z. B. `0.3.0-beta`) werden als Vorabversion markiert.

@@ -94,6 +94,7 @@ input[type=text]{font-family:var(--f-hand);font-size:20px;border:3px solid var(-
 @keyframes pop{from{transform:scale(.3) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
 #help{position:absolute;left:max(12px,env(safe-area-inset-left,0px));bottom:16px;background:var(--shade);color:var(--paper);border-radius:8px;padding:6px 10px;font-size:13.5px;line-height:1.3;max-width:330px;pointer-events:auto}
 #help i{font-style:normal;opacity:.6}
+#help .hm{display:none}#help.mini .hf{display:none}#help.mini .hm{display:inline}#help.mini{opacity:.75}
 select.pick{font-family:var(--f-hand);font-size:17px;border:3px solid var(--ink);border-radius:6px;padding:3px;background:var(--paper);color:var(--ink)}
 #langNote{font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 #langNote.hidden{display:none}
@@ -159,7 +160,7 @@ select.pick{font-family:var(--f-hand);font-size:17px;border:3px solid var(--ink)
         <select id="saSel" style="font-family:var(--f-hand);font-size:17px;border:3px solid var(--ink);border-radius:6px;padding:3px">
           <option value="2">alle 2 Tage</option><option value="3" selected>alle 3 Tage</option><option value="4">alle 4 Tage</option><option value="1">jeden Tag (viel Spaß)</option><option value="0">nie</option>
         </select>
-        <button id="startBtn" type="button">Schultag starten!</button></div>
+        <button id="startBtn" type="button">Schultag starten</button></div>
     </div>
     <div class="keys">
       <div><b>WASD</b>Laufen <b>Shift</b>Rennen</div><div><b>Maus</b>Umsehen (Klick)</div>
@@ -184,7 +185,7 @@ select.pick{font-family:var(--f-hand);font-size:17px;border:3px solid var(--ink)
   <div id="lockHint" hidden>Klick ins Bild, dann schaust du dich mit der Maus um. Esc öffnet das Menü.</div>
   <div id="susBox"><span id="eye">Verdacht</span><div class="bar"><i id="susBar"></i></div></div>
   <div id="inv"></div>
-  <div id="help"><b>E</b> Sitzen/Benutzen <i>·</i> <b>H</b> HÜ <i>·</i> <b>F</b> Abschreiben <i>·</i> <b>V</b> Stehlen <i>·</i> <b>G</b> Zettel <i>·</i> <b>R</b> Schubsen <i>·</i> <b>Q</b> Frage <i>·</i> <b>X</b> Petzen <i>·</i> <b>1-3</b> Items<br>Schaut der Lehrer weg, mach schnell die Hausübung. Schaut er her, tu so, als wär nix.</div>
+  <div id="help"><span class="hf"><b>E</b> Sitzen/Benutzen <i>·</i> <b>H</b> HÜ <i>·</i> <b>F</b> Abschreiben <i>·</i> <b>V</b> Stehlen <i>·</i> <b>G</b> Zettel <i>·</i> <b>R</b> Schubsen <i>·</i> <b>Q</b> Frage <i>·</i> <b>X</b> Petzen <i>·</i> <b>1-3</b> Items <i>·</i> <b>T</b> Tipps ausblenden<br>Schaut der Lehrer weg, mach schnell die Hausübung. Schaut er her, tu so, als wär nix.</span><span class="hm"><b>T</b> Tipps einblenden</span></div>
 </div>
 
 <div id="mg" class="paper hidden">
@@ -209,7 +210,8 @@ select.pick{font-family:var(--f-hand);font-size:17px;border:3px solid var(--ink)
       <div><b>G</b>Zettel werfen</div><div><b>R</b>Schubsen</div>
       <div><b>Q</b>Dumme Frage stellen</div><div><b>X</b>Verpetzen (beim Lehrer)</div>
       <div><b>1-3</b>Item benutzen</div><div><b>Space</b>Springen</div>
-      <div><b>M</b>Ton an/aus</div><div><b>Esc</b>Dieses Menü</div>
+      <div><b>M</b>Ton an/aus</div><div><b>T</b>Tipps ein/aus</div>
+      <div><b>Esc</b>Dieses Menü</div>
     </div>
     <fieldset><legend>Einstellungen</legend>
       <div class="set"><label for="sSens">Maus-Empfindlichkeit</label><input type="range" id="sSens" min="0.3" max="2.5" step="0.05"><output id="oSens"></output></div>

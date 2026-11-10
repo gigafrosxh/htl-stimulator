@@ -38,7 +38,8 @@ const WSAY = N_({
 });
 
 const Net = { room: null, me: 'local', solo: true, peers: [], connected: false };
-const G = { saEvery: 3, ph: 'lobby', day: 1, seed: 1, li: 0, rem: 0, dur: 180, el: 0, goal: 0, tp: 0, ev: [], es: 0, T: [], run: 0, res: null, np: 1, alarms: 0 };
+const INTRO_S = 3.2; // so lange bleibt die Tageskarte stehen
+const G = { saEvery: 3, intro: 0, ph: 'lobby', day: 1, seed: 1, li: 0, rem: 0, dur: 180, el: 0, goal: 0, tp: 0, ev: [], es: 0, T: [], run: 0, res: null, np: 1, alarms: 0 };
 let gRecv = 0, lastHost = null, lastSeenG = null;
 async function netJoin(code) {
   try {
@@ -74,7 +75,10 @@ function syncG(now) {
   if (g && g !== syncG.lastObj) { syncG.lastObj = g; Object.assign(G, g); gRecv = now; lastSeenG = g; }
   lastHost = hid;
 }
-function gRem(now) { return isHost() ? G.rem : G.rem - (now - gRecv) / 1000; }
+// Während die Tageskarte zu sehen ist (G.intro), steht die Uhr still.
+function gIntro(now = performance.now()) { return isHost() ? G.intro : G.intro - (now - gRecv) / 1000; }
+function gRem(now) { return isHost() ? G.rem : G.rem - Math.max(0, (now - gRecv) / 1000 - Math.max(0, G.intro || 0)); }
+const introOn = () => gIntro() > 0;
 function gEl(now) { return isHost() ? G.el : G.el + (now - gRecv) / 1000; }
 
 // ---------------- host simulation ----------------
@@ -177,7 +181,7 @@ function hostTeacherTick(dt) {
 function lerpAng(a, b, t) { return a + angDiff(a, b) * t; }
 function nPlayers() { return Math.max(1, allPlayers().filter(p => p.presence && p.presence.n).length); }
 function hostBeginDay(day) {
-  G.day = day; G.ph = 'break'; G.li = 0; G.rem = 45; G.el = 0; G.alarms = 0; G.res = null; planKey = '';
+  G.day = day; G.ph = 'break'; G.li = 0; G.rem = 45; G.intro = INTRO_S; G.el = 0; G.alarms = 0; G.res = null; planKey = '';
   H.checkDone = H.testDone = H.revealDone = H.startDone = -1; H.caught = 0; H.repeated = false;
   hev('day', { day });
 }
@@ -188,7 +192,8 @@ function hostEndLesson() {
 function hostTick(dt) {
   if (!H.tch.length) hostInitTeachers();
   // process actions of everybody (host role)
-  if (G.ph !== 'lobby') { G.rem -= dt; G.el += dt; }
+  if (G.intro > 0) G.intro = Math.max(0, G.intro - dt);
+  else if (G.ph !== 'lobby') { G.rem -= dt; G.el += dt; }
   G.np = nPlayers();
   G.tp = allPlayers().reduce((s, p) => s + ((p.presence && p.presence.day === G.day && p.presence.run === G.run && p.presence.pts) || 0), 0);
   G.goal = Math.round(G.np * (150 + 70 * (G.day - 1)));

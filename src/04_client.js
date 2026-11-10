@@ -4,8 +4,8 @@ let meCh = null; const remote = new Map(); const tchCh = []; const npcCh = []; c
 let started = false, yaw = -Math.PI / 2, pitch = 0, camDist = 3.6;
 const keys = new Set();
 // ---------------- Einstellungen + Esc-Menü ----------------
-const SET = Object.assign({ sens: 1, fov: 74, vol: 1, inv: false, bob: true }, (() => { try { return JSON.parse(localStorage.getItem('swyf-settings') || '{}'); } catch (e) { return {}; } })());
-function applySettings() { camera.fov = SET.fov; camera.updateProjectionMatrix(); Snd.vol = SET.vol; try { localStorage.setItem('swyf-settings', JSON.stringify(SET)); } catch (e) { } }
+const SET = Object.assign({ sens: 1, fov: 74, vol: 1, inv: false, bob: true, tips: true }, (() => { try { return JSON.parse(localStorage.getItem('swyf-settings') || '{}'); } catch (e) { return {}; } })());
+function applySettings() { $('#help').classList.toggle('mini', !SET.tips); camera.fov = SET.fov; camera.updateProjectionMatrix(); Snd.vol = SET.vol; try { localStorage.setItem('swyf-settings', JSON.stringify(SET)); } catch (e) { } }
 let paused = false;
 function canPause() { return started && G.ph !== 'lobby' && G.ph !== 'detention' && !MG.open; }
 function openPause() { if (paused || !canPause()) return; paused = true; keys.clear(); jumpBuffer = 0; $('#pause').classList.remove('hidden'); $('#pauseSub').textContent = others().length ? TR('Achtung, im Mehrspieler läuft die Zeit weiter.') : TR('Die Zeit ist angehalten.'); if (document.pointerLockElement === canvas) { try { document.exitPointerLock(); } catch (e) { } } setTimeout(() => $('#pResume').focus(), 0); }
@@ -85,9 +85,9 @@ function teacherSees(i, x, y, z) {
   const t = TV[i]; if (!t || t.rg || !'fsxpwc'.includes(t.st)) return 0; if (Math.abs(t.y - y) > 1.8) return 0;
   const rt = roomAt(t.x, t.z, t.y), rp = roomAt(x, z, y); if (rt.name !== rp.name || rp.type === 'toilet') return 0;
   const P = PERS[TEACH[i].pers]; const dx = x - t.x, dz = z - t.z, d = Math.hypot(dx, dz); const view = P.view * (1 + .07 * (G.day - 1)); if (d > view) return 0;
-  const a = Math.abs(angDiff(t.ry, Math.atan2(dx, dz))); const fov = P.fov * (t.st === 'c' ? .7 : t.st === 'w' ? .8 : 1);
-  if (a > fov / 2 && d > 1.4) return 0;
-  return P.sus * (.4 + .6 * (1 - d / view)) * (1 + .12 * (G.day - 1));
+  const a = Math.abs(angDiff(t.ry, Math.atan2(dx, dz))); const fov = P.fov * 1.15 * (t.st === 'c' ? .75 : t.st === 'w' ? .85 : 1);
+  if (a > fov / 2 && d > 2.1) return 0;
+  return P.sus * (.55 + .45 * (1 - d / view)) * (1 + .12 * (G.day - 1));
 }
 function bestWatcher() { let b = 0, w = -1; TEACH.forEach((_, i) => { const s = teacherSees(i, ME.x, ME.y + .5, ME.z); if (s > b) { b = s; w = i; } }); return [b, w]; }
 function activity() {
@@ -103,15 +103,15 @@ function activity() {
   } else if (G.ph === 'break') { if (r.type === 'hall' && sprint) a = .45; }
   return a;
 }
-function spikeIfSeen(n, why) { const [s, w] = bestWatcher(); if (s > 0) { ME.sus += n * Math.max(.6, s); if (why) toast(why, 'bad'); if (ME.sus >= 100) caught(w); return true; } return false; }
+function spikeIfSeen(n, why) { const [s, w] = bestWatcher(); if (s > 0) { ME.sus += n * 1.3 * Math.max(.7, s); if (why) toast(why, 'bad'); if (ME.sus >= 100) caught(w); return true; } return false; }
 function updateSus(dt) {
   if (!['lesson', 'break'].includes(G.ph)) { ME.sus = Math.max(0, ME.sus - 20 * dt); return; }
   const a = activity(); const [s, w] = bestWatcher(); const g = a * s;
-  if (g > 0) { ME.sus += g * 34 * dt; if (Math.random() < dt * 2) Snd.heart(); }
-  else ME.sus = Math.max(0, ME.sus - 7 * dt);
+  if (g > 0) { ME.sus += g * 48 * dt; if (Math.random() < dt * 2) Snd.heart(); }
+  else ME.sus = Math.max(0, ME.sus - 4.5 * dt); // langsamer vergessen: erwischt wird man jetzt öfter
   if (myRoom().type === 'staff' && s > 0 && !ME.staffWarn) { ME.staffWarn = 1; act('staff', { w }); setTimeout(() => ME.staffWarn = 0, 8000); }
   const gu = wanCh[0]; const cheating = (MG.open && !MG.forced) || ME.copy;
-  if (gu && cheating && !gu.rg && Math.hypot(gu.x - ME.x, gu.z - ME.z) < 3.5 && Math.abs(gu.y - ME.y) < 1.5 && (ME.cool.streber || 0) < performance.now() / 1000) {
+  if (gu && cheating && !gu.rg && Math.hypot(gu.x - ME.x, gu.z - ME.z) < 4.5 && Math.abs(gu.y - ME.y) < 1.5 && (ME.cool.streber || 0) < performance.now() / 1000) {
     ME.cool.streber = performance.now() / 1000 + 25; ME.sus = Math.min(97, ME.sus + 30); say(gu, TR('Herr Professor, der schummelt!'), 1.6, 3); Snd.huh(); toast(TR('Streber Günther hat dich verpetzt!'), 'bad');
   }
   if (ME.sus > 55 && !ME.warned && w >= 0) { ME.warned = true; act('sus50', { w }); Snd.huh(); }
@@ -119,7 +119,7 @@ function updateSus(dt) {
   if (ME.sus >= 100) caught(w);
 }
 function caught(w, heavy = false) {
-  ME.sus = 38; ME.warned = false; ME.cheatT = 0;
+  ME.sus = 45; ME.warned = false; ME.cheatT = 0;
   if (MG.open && MG.opts && MG.opts.exam) { closeMG(true); toast(TR('Beim Schummeln erwischt. Die Schularbeit ist weg!'), 'bad', 4500); addPts(-80, TR('Schularbeit: Nicht genügend (Schummeln)')); }
   if (MG.open && !MG.forced) closeMG(true); ME.copy = null;
   const t = TV[w] || { x: ME.x - 1, z: ME.z }; const dx = ME.x - t.x, dz = ME.z - t.z, d = Math.hypot(dx, dz) || 1;
@@ -151,6 +151,8 @@ function frontTarget(maxD) {
 function hwLessons() { return [0, 1, 2, 3].filter(li => hwOpen(li)); }
 function onKey(code) {
   const now = performance.now() / 1000; const cd = (k, s) => { if ((ME.cool[k] || 0) > now) return false; ME.cool[k] = now + s; return true; };
+  if (code === 'KeyT') { SET.tips = !SET.tips; applySettings(); return; }
+  if (introOn() && code !== 'KeyM') return; // Tageskarte: erst loslegen, wenn sie weg ist
   if (meCh.rg && code !== 'KeyH') return;
   switch (code) {
     case 'KeyE': interact(); break;
@@ -449,7 +451,7 @@ function updateMe(dt, t) {
   if (ME.cheatT > 0) ME.cheatT -= dt;
   if (ME.tagT > 0) ME.tagT -= dt;
   if (ME.poseT > 0) { ME.poseT -= dt; if (ME.poseT <= 0) ME.pose = 'idle'; }
-  let mx = 0, mz = 0; const busy = MG.open || meCh.rg || G.ph === 'detention';
+  let mx = 0, mz = 0; const busy = MG.open || meCh.rg || G.ph === 'detention' || introOn();
   if (!busy) { if (keys.has('KeyW') || keys.has('ArrowUp')) mz += 1; if (keys.has('KeyS') || keys.has('ArrowDown')) mz -= 1; if (keys.has('KeyA') || keys.has('ArrowLeft')) mx += 1; if (keys.has('KeyD') || keys.has('ArrowRight')) mx -= 1; }
   if (busy || ME.seat) { jumpBuffer = 0; coyoteTime = 0; }
   if ((mx || mz) && ME.seat) { ME.seat = null; Snd.squeak(); }
@@ -490,7 +492,7 @@ function updateMe(dt, t) {
   }
   if (!ME.seat && !meCh.rg && !busy) ME.ry = lerpAng(ME.ry, Math.atan2(-Math.sin(yaw), -Math.cos(yaw)), 1 - Math.exp(-30 * dt));
   if (ME.y < -5) { ME.x = -20; ME.z = 0; ME.y = 0; }
-  if (ME.x < -22.9 && Math.abs(ME.z) < 1.5 && ME.y < 1 && (ME.soonT || 0) < t) { ME.soonT = t + 6; toast(TR('Der Schulhof ist noch gesperrt. Kommt bald!'), 'info'); Snd.huh(); }
+  if (ME.x < -22.9 && Math.abs(ME.z) < 1.5 && ME.y < 1 && (ME.soonT || 0) < t) { ME.soonT = t + 6; toast(TR('Der Schulhof ist wegen Bauarbeiten gesperrt.'), 'info'); Snd.huh(); }
   if (ME.x < -24.2) { ME.x = -22.5; ME.z = clamp(ME.z, -1.5, 1.5); } // falls man doch rausrutscht (Ragdoll)
   // copy progress
   if (ME.copy) {

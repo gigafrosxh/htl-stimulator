@@ -7,5 +7,5 @@ cd "$(dirname "$0")"
   for f in src/i18n/*.json; do
     echo "I18N['$(basename "$f" .json)'] = $(cat "$f");"
   done
-  cat src/02_core.js src/03_net_host.js src/04_client.js src/05_ui.js
+  cat src/01b_models.js src/02_core.js src/03_net_host.js src/04_client.js src/05_ui.js
   echo '</script>'; } > index.html
