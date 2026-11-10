@@ -598,17 +598,26 @@ function updateHands(dt, t) {
   if (ME.throwT > 0) ME.throwT -= dt;
   hands.forEach((h, i) => {
     const sd = h.userData.sd, swing = Math.sin(ph + i * Math.PI);
-    let x = .28 * sd, y = -.31 - Math.abs(Math.cos(ph)) * .02 * k + Math.sin(t * 2) * .005, z = -.6 + swing * .04 * k, rx = .45, ry = -.18 * sd, rz = .15 * sd;
+    let x = .28 * sd, y = -.31 - (1 + Math.cos(ph * 2)) * .008 * k + Math.sin(t * 2) * .005, z = -.6 + swing * .04 * k, rx = .45, ry = -.18 * sd, rz = .15 * sd;
     if (ME.seat) { y -= .04; z -= .03; }
-    if (pose === 'write') { x = .14 * sd; y = -.36; z = -.5; rx = .9; ry = 0; if (i === 0) { x += Math.sin(t * 24) * .015; z += Math.cos(t * 17) * .01; } }
+    if (pose === 'write') { x = .14 * sd; y = -.36; z = -.5; rx = .9; ry = 0; if (i === 0) { x += Math.sin(t * 7) * .009; z += Math.cos(t * 5) * .006; } }
     if (pose === 'phone' && i === 1) { x = -.1; y = -.24; z = -.5; rx = .7; ry = .1; rz = 0; }
-    if (pose === 'raise' && i === 0) { if (ME.throwT > 0) { const q = 1 - ME.throwT / .35; x = .26; y = -.05 + Math.sin(q * Math.PI) * .1; z = -.4 - q * .45; rx = -.4 + q * .8; } else { x = .3; y = .12 + Math.sin(t * 12) * .03; z = -.55; rx = -.9; rz = Math.sin(t * 12) * .25; } }
+    if (pose === 'raise' && i === 0) { if (ME.throwT > 0) { const q = 1 - ME.throwT / .35; x = .26; y = -.05 + Math.sin(q * Math.PI) * .1; z = -.4 - q * .45; rx = -.4 + q * .8; } else { x = .3; y = .12 + Math.sin(t * 3.5) * .03; z = -.55; rx = -.9; rz = Math.sin(t * 3.5) * .25; } }
     if (pose === 'point' && i === 0) { const q = clamp(ME.poseT / .5, 0, 1); x = .16; y = -.2; z = -.62 - Math.sin(q * Math.PI) * .32; rx = .05; ry = 0; }
-    if (pose === 'panic') { x = .28 * sd; y = .02 + Math.sin(t * 20 + i * 3) * .08; z = -.5; rx = -.8; rz = Math.sin(t * 20 + i) * .4; }
+    if (pose === 'panic') { x = .28 * sd; y = .02 + Math.sin(t * 6 + i * 3) * .08; z = -.5; rx = -.8; rz = Math.sin(t * 6 + i) * .22; }
     if (ME.vy) y -= clamp(ME.vy * .008, -.06, .06);
     x += ME.sway.x * .5; y += ME.sway.y * .5;
-    const u = h.userData, f = 1 - Math.exp(-16 * dt);
-    u.p.lerp(_hp.set(x, y, z), f); u.r.set(lerp(u.r.x, rx, f), lerp(u.r.y, ry, f), lerp(u.r.z, rz, f));
+    const u = h.userData, f = 1 - Math.exp(-11 * dt);
+    // Analytic critically damped spring: stable at any frame rate, with retained momentum.
+    if (!u.velocity) { u.velocity = new THREE.Vector3(); u.p.set(x, y, z); u.r.set(rx, ry, rz); }
+    _hp.set(x, y, z);
+    const step = Math.min(dt, .1), omega = 15, decay = Math.exp(-omega * step);
+    for (const axis of ['x', 'y', 'z']) {
+      const offset = u.p[axis] - _hp[axis], impulse = u.velocity[axis] + omega * offset;
+      u.p[axis] = _hp[axis] + (offset + impulse * step) * decay;
+      u.velocity[axis] = (u.velocity[axis] - omega * impulse * step) * decay;
+    }
+    u.r.set(lerp(u.r.x, rx, f), lerp(u.r.y, ry, f), lerp(u.r.z, rz, f));
     h.position.copy(u.p); h.rotation.copy(u.r);
   });
   phone.visible = pose === 'phone'; if (phone.visible) { phone.position.copy(hands[1].position).add(_hp.set(.02, .1, -.04)); phone.rotation.set(-.12, .12, 0); }
